@@ -1,0 +1,20 @@
+/* Style Udemy-like */
+#root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+  background: linear-gradient(to right, #29303b, #29303b);
+  color: white;
+  padding: 15px 0;
+}
+
+.course-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s;
+}
+
+.course-card:hover {
+  transform: translateY(-5px);
+}
