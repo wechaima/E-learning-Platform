@@ -74,10 +74,7 @@ export default function Login() {
     <div className="auth-container">
       <header className="auth-header">
         <div className="header-content">
-          <Link to="/" className="back-button">
-            <FaArrowLeft className="icon" />
-            <span>Retour à l'accueil</span>
-          </Link>
+          
           <h1 className="logo">EduPlatform</h1>
         </div>
       </header>
