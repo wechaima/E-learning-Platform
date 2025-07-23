@@ -1,4 +1,5 @@
-import { FaTimes, FaUsers, FaChalkboardTeacher, FaHome, FaCog } from 'react-icons/fa';
+import React from 'react';
+import { FaTimes, FaUsers, FaChalkboardTeacher, FaHome, FaCog, FaUserShield } from 'react-icons/fa';
 import './AdminSidebar.css';
 
 const AdminSidebar = ({ 
@@ -52,6 +53,17 @@ const AdminSidebar = ({
         >
           <FaUsers className="nav-icon" />
           Étudiants
+        </button>
+        
+        <button
+          className={`nav-item ${activeTab === 'admins' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('admins');
+            onClose();
+          }}
+        >
+          <FaUserShield className="nav-icon" />
+          Admins
         </button>
         
         <button

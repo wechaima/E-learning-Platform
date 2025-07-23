@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { FaStar, FaRegStar, FaUsers, FaClock } from 'react-icons/fa';
 import './CourseGrid.css';
@@ -7,17 +8,18 @@ const CourseGrid = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const fetchCourses = async () => {
     try {
-      const res = await api.get('/courses');
+      const res = await api.get('/courses?populate=createdBy');
       const coursesData = Array.isArray(res.data?.data || res.data) 
         ? (res.data?.data || res.data) 
         : [];
       setCourses(coursesData);
     } catch (err) {
-      setError("Failed to fetch courses. Please try again later.");
-      console.error("Failed to fetch courses:", err);
+      setError("Échec du chargement des cours. Veuillez réessayer.");
+      console.error("Échec du chargement des cours:", err);
     } finally {
       setLoading(false);
     }
@@ -45,12 +47,16 @@ const CourseGrid = () => {
     return stars;
   };
 
+  const handleEnrollClick = () => {
+    navigate('/login');
+  };
+
   return (
     <section className="course-grid-section">
       <div className="container">
         <div className="section-header">
           <h2>Nos formations populaires</h2>
-          <p>Découvrez nos cours les plus appréciés par nos étudiants</p>
+          <p>Découvrez nos cours les plus appréciés</p>
         </div>
         
         {loading ? (
@@ -63,48 +69,62 @@ const CourseGrid = () => {
           <div className="courses-grid">
             {courses.map(course => (
               <div key={course._id} className="course-card">
+                {/* Image du cours */}
                 <div className="course-image">
-                  <img src={course.imageUrl || 'https://via.placeholder.com/300x200'} alt={course.title} />
-                  <div className="course-badge">Populaire</div>
+                  <img 
+                    src={course.imageUrl || '/images/course-default.jpg'} 
+                    alt={course.title} 
+                    onError={(e) => {
+                      e.target.src = '/images/course-default.jpg';
+                    }}
+                  />
                 </div>
+                
                 <div className="course-content">
+                  {/* Titre du cours */}
                   <h3 className="course-title">{course.title}</h3>
-                  <p className="course-instructor">Par {course.instructor || 'Anonyme'}</p>
                   
+                  {/* Description du cours (tronquée) */}
+                  <p className="course-description">
+                    {course.description?.length > 100 
+                      ? `${course.description.substring(0, 100)}...` 
+                      : course.description}
+                  </p>
+                  
+                  {/* Nom du formateur */}
+                  <div className="course-instructor">
+                    <span>Formateur : </span>
+                    {course.createdBy?.prenom 
+                      ? `${course.createdBy.prenom} ${course.createdBy.nom}`
+                      : 'Non spécifié'}
+                  </div>
+                  
+                  {/* Métadonnées */}
                   <div className="course-meta">
                     <div className="course-rating">
-                      {renderRating(course.rating || 4.5)}
-                      <span>{course.rating?.toFixed(1) || '4.5'}</span>
+                      {renderRating(course.rating || 0)}
+                      <span>({course.rating?.toFixed(1) || '0.0'})</span>
                     </div>
                     <div className="course-stats">
                       <span><FaUsers /> {course.enrollments || 0}</span>
-                      <span><FaClock /> {course.duration || '10h'}</span>
+                      <span><FaClock /> {course.duration || 'N/A'}</span>
                     </div>
                   </div>
                   
-                  <div className="course-price">
-                    {course.discountPrice ? (
-                      <>
-                        <span className="original-price">${course.price}</span>
-                        <span className="discount-price">${course.discountPrice}</span>
-                      </>
-                    ) : (
-                      <span>${course.price || 'Gratuit'}</span>
-                    )}
-                  </div>
-                  
-                  <button className="enroll-button">S'inscrire</button>
+                  {/* Bouton d'inscription */}
+                  <button 
+                    className="enroll-button"
+                    onClick={handleEnrollClick}
+                  >
+                    S'inscrire
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="no-courses">Aucun cours disponible pour le moment</div>
+          <div className="no-courses">Aucun cours disponible actuellement</div>
         )}
-        
-        <div className="view-all-container">
-          <button className="view-all-button">Voir toutes les formations</button>
-        </div>
       </div>
     </section>
   );

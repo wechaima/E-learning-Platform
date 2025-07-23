@@ -7,10 +7,10 @@ const PlatformDefinition = () => {
     <section className="platform-definition">
       <div className="definition-container">
         <div className="definition-content">
-          <h1>EDiPlatforme</h1>
+          <h1>EduPlatforme</h1>
           <h2>Votre passerelle vers l'expertise numérique</h2>
           <p>
-            EDiPlatforme révolutionne l'apprentissage en ligne avec des formations pratiques 
+            EduPlatforme révolutionne l'apprentissage en ligne avec des formations pratiques 
             et des parcours sur-mesure dans les domaines les plus porteurs du numérique.
           </p>
           <button className="explore-button">Explorer les cours</button>

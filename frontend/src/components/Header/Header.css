@@ -24,7 +24,7 @@
 .logo-text {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #6a1b9a;
+  color: #4f46e5;
 }
 
 .search-container {
@@ -50,7 +50,7 @@
 
 .search-button {
   padding: 0 1.2rem;
-  background-color: #6a1b9a;
+  background-color: #4f46e5;
   color: white;
   border: none;
   border-radius: 0 25px 25px 0;
@@ -75,7 +75,7 @@
 
 .nav-button {
   padding: 0.6rem 1.2rem;
-  background-color: #6a1b9a;
+  background-color: #4f46e5;
   color: white;
   border: none;
   border-radius: 25px;
@@ -89,7 +89,7 @@
 
 .login-button {
   background-color: transparent;
-  color: #6a1b9a;
+  color: #4f46e5;
   border: 1px solid #6a1b9a;
   text-decoration: none; /* Supprime le soulignement */
 }

@@ -7,15 +7,15 @@ const Footer = () => {
         <div className="footer-section">
           <h3>POUR LES ÉTUDIANTS</h3>
           <ul>
-            <li>Formations diplômantes</li>
-            <li>Cours</li>
+            <li>Formations en ligne</li>
+            <li>Cours gratuit</li>
           </ul>
         </div>
         
         <div className="footer-section">
           <h3>POUR LES EMPLOYEURS</h3>
           <ul>
-            <li>Solutions de formations et recrutement</li>
+            <li>Booster les compétance </li>
             <li>Développer les connaissances</li>
           </ul>
         </div>

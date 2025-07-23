@@ -19,52 +19,32 @@ export default function Login() {
   e.preventDefault();
   setIsLoading(true);
   setError('');
-  
+
   try {
     const res = await api.post('/auth/login', { email, password });
     localStorage.setItem('token', res.data.token);
-    
-    if (rememberMe) {
-      localStorage.setItem('rememberMe', 'true');
-    } else {
-      localStorage.removeItem('rememberMe');
-    }
-    
-    // Connexion via le contexte d'authentification
     login(res.data.user, res.data.token);
 
-    // Redirection en fonction du rôle
-    switch(res.data.user.role) {
-      case 'admin':
-        navigate('/admin');
-        break;
-      case 'formateur':
-        navigate('/formateur/dashboard');
-        break;
-      case 'etudiant': // Note: j'ai changé 'visiteur' pour 'etudiant' pour correspondre à votre App.js
-        navigate('/visiteur');
-        break;
-      default:
-        navigate('/');
+    // Debug: Vérifiez les données reçues
+    console.log('User role:', res.data.user.role);
+    
+    const role = res.data.user.role.toLowerCase();
+
+if (role === 'admin' || role === 'superadmin') {
+  navigate('/admin');
+} else if (role === 'formateur') {
+  navigate('/formateur/dashboard');
+} else if (role === 'etudiant') {
+  navigate('/etudiant');
+} else {
+  navigate('/');
+}
+
     }
-    } catch (err) {
-      let errorMessage = 'Email ou mot de passe incorrect';
-      
-      if (err.response) {
-        if (err.response.status === 401) {
-          errorMessage = 'Identifiants invalides';
-        } else if (err.response.data?.message) {
-          errorMessage = err.response.data.message;
-        }
-      } else if (err.request) {
-        errorMessage = 'Erreur de connexion au serveur';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+   catch (err) {
+    // Gestion d'erreur...
+  }
+};
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -113,12 +93,14 @@ export default function Login() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
+                  autoComplete="username"
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
                 <button
                   type="button"
                   className="toggle-password"
+                  autoComplete="current-password"
                   onClick={togglePasswordVisibility}
                   aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                 >

@@ -1,0 +1,266 @@
+.course-detail-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  color: #2c3e50;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 20px;
+  background: #ecf0f1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.back-button:hover {
+  background: #bdc3c7;
+}
+
+.course-header {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.course-header h1 {
+  font-size: 32px;
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.course-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 14px;
+  color: #7f8c8d;
+}
+
+.progress-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.progress-fill {
+  position: absolute;
+  height: 6px;
+  background: #27ae60;
+  border-radius: 3px;
+  top: 100%;
+  left: 0;
+  transition: width 0.3s;
+}
+
+.course-description {
+  color: #7f8c8d;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.course-content {
+  display: flex;
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.sections-sidebar {
+  flex: 0 0 300px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sections-sidebar h3 {
+  font-size: 20px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #ecf0f1;
+  color: #2c3e50;
+}
+
+.sections-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sections-sidebar li {
+  padding: 15px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s;
+}
+
+.sections-sidebar li:hover {
+  background: #f1f3f5;
+}
+
+.sections-sidebar li.active {
+  border-left: 4px solid #3498db;
+  background: #e6f3ff;
+}
+
+.section-number {
+  background: #3498db;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.section-info {
+  flex: 1;
+}
+
+.section-info h4 {
+  margin: 0 0 5px 0;
+  font-size: 16px;
+  color: #2c3e50;
+}
+
+.section-info p {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.completed-icon {
+  color: #27ae60;
+  flex-shrink: 0;
+}
+
+.section-content {
+  flex: 1;
+}
+
+.section-header {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 24px;
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.section-header .section-number {
+  background: #e74c3c;
+}
+
+.video-container {
+  margin: 20px 0;
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.section-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.primary-button, .secondary-button, .quiz-button {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.primary-button {
+  background: #3498db;
+  color: white;
+}
+
+.primary-button:hover {
+  background: #2980b9;
+}
+
+.secondary-button {
+  background: #ecf0f1;
+  color: #2c3e50;
+}
+
+.secondary-button:hover {
+  background: #bdc3c7;
+}
+
+.quiz-button {
+  background: #27ae60;
+  color: white;
+}
+
+.quiz-button:hover {
+  background: #219653;
+}
+
+.quiz-container {
+  background: #f8f9fa;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
+
+.quiz-container h2 {
+  margin-top: 0;
+  font-size: 24px;
+  color: #2c3e50;
+}
+
+.quiz-content {
+  margin-top: 15px;
+}
+
+.loading, .error, .not-found {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: #7f8c8d;
+}
