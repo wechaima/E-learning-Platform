@@ -8,7 +8,6 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
     nom: admin?.nom || '',
     email: admin?.email || '',
     role: admin?.role || 'Admin',
-    password: '', // Required for new admins, optional for updates
   });
 
   useEffect(() => {
@@ -18,7 +17,6 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
         nom: admin.nom || '',
         email: admin.email || '',
         role: admin.role || 'Admin',
-        password: '', // Empty for updates
       });
     } else {
       setFormData({
@@ -26,13 +24,15 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
         nom: '',
         email: '',
         role: 'Admin',
-        password: '',
       });
     }
   }, [admin]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleSubmit = (e) => {
@@ -44,7 +44,7 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{admin ? 'Modifier Admin' : 'Ajouter un Admin'}</h2>
+          <h2>{admin ? 'Modifier mon profil' : 'Ajouter un admin'}</h2>
           <button onClick={onClose} className="close-btn">
             <FaTimes />
           </button>
@@ -94,26 +94,36 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
               <FaUserShield className="input-icon" />
               Rôle
             </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              required={!admin} // Required only for new admins
-            >
-              <option value="Admin">Admin</option>
-              <option value="SuperAdmin">Super Admin</option>
-            </select>
+            {admin ? (
+              <input
+                type="text"
+                value={formData.role}
+                readOnly
+                disabled
+                className="disabled-input"
+              />
+            ) : (
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                required
+              >
+                <option value="Admin">Admin</option>
+                <option value="SuperAdmin">Super Admin</option>
+              </select>
+            )}
           </div>
           {!admin && (
             <div className="form-group">
               <label>
-                <FaUserShield className="input-icon" />
-                Mot de passe (Requis)
+                <FaUser className="input-icon" />
+                Mot de passe
               </label>
               <input
                 type="password"
                 name="password"
-                value={formData.password}
+                value={formData.password || ''}
                 onChange={handleChange}
                 required
               />
