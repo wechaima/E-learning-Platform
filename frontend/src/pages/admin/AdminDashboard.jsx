@@ -38,7 +38,19 @@ function AdminDashboard() {
   const [formateurDataToSave, setFormateurDataToSave] = useState(null);
 
   useEffect(() => {
-    
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const res = await api.get('/auth/profile', { headers: { Authorization: `Bearer ${token}` } });
+          setUserProfile(res.data.data);
+        }
+      } catch (err) {
+        toast.error('Erreur lors du chargement du profil');
+        console.error(err);
+      }
+    };
+    fetchUserProfile();
     fetchData();
   }, [activeTab]);
 
