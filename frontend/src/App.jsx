@@ -10,6 +10,8 @@ import FormateurDashboard from './pages/formateur/FormateurDashboard';
 import { Navigate } from 'react-router-dom';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import CourseDetail from './pages/cours/CourseDetail';
+import { ForgotPassword } from './pages/ForgotPassword';
+
 
 function App() {
   return (
@@ -21,7 +23,8 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+           
             {/* Routes protégées */}
             <Route element={<ProtectedRoute allowedRoles={['admin', 'superadmin']} />}>
   <Route path="/admin/*" element={<AdminDashboard />} />

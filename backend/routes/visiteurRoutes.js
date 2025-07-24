@@ -1,10 +1,10 @@
 import express from 'express'; 
-import { getVisiteurs } from '../controllers/visiteurController.js';
-import { authenticate, isAdmin } from '../midddleware/auth.js';
+import { getEtudiants, } from '../controllers/etudiantController.js';
+import { authenticate, isAdminOrSuperAdmin } from '../midddleware/auth.js';
 
 const router = express.Router();
 
-// Route protégée : GET /api/visiteurs
-router.get('/visiteurs', authenticate, isAdmin, getVisiteurs);
+// Route protégée : GET /api/Etudiants
+router.get('/Etudiants', authenticate, isAdminOrSuperAdmin, getEtudiants);
 
 export default router;

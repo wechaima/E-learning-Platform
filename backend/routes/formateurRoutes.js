@@ -4,17 +4,18 @@ import {
   updateFormateur,
   deleteFormateur
 } from '../controllers/formateurController.js';
-import { authenticate, isAdmin } from '../midddleware/auth.js';
+import { authenticate, isAdminOrSuperAdmin} from '../midddleware/auth.js';
+;
 
 
 const router = express.Router();
 
 // Middleware pour toutes les routes
-router.use(authenticate, isAdmin);
+router.use(authenticate, isAdminOrSuperAdmin);
 
 // Routes CRUD pour formateurs
-router.get('/',isAdmin, listFormateurs);
-router.put('/:id',isAdmin, updateFormateur);
-router.delete('/:id',isAdmin, deleteFormateur);
+router.get('/', authenticate, isAdminOrSuperAdmin, listFormateurs);
+router.put('/:id',authenticate, isAdminOrSuperAdmin, updateFormateur);
+router.delete('/:id',authenticate, isAdminOrSuperAdmin, deleteFormateur);
 
 export default router;

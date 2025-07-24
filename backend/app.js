@@ -1,10 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+
 import authRoutes from './routes/auth.js';
-import router from './routes/formateurRoutes.js';
 import visiteurRoutes from './routes/visiteurRoutes.js';
+import formateurRoutes from './routes/formateurRoutes.js';
 import courseRoutes from './routes/courseRoutes.js';
+import adminRoutes from './routes/admin.js';
+
+
 
 dotenv.config();
 
@@ -16,9 +21,12 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/formateurs', router);
+app.use('/api/formateurs', authRoutes );
 app.use('/api', visiteurRoutes);
+app.use('/api/formateur', formateurRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/auth', adminRoutes);
+
 // Gestion des erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);

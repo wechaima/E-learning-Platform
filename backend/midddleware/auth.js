@@ -1,44 +1,21 @@
-// Importation du module jsonwebtoken pour gérer les JWT (JSON Web Tokens)
-import jwt from 'jsonwebtoken';
 
 /**
  * Middleware d'authentification générique avec contrôle de rôle
  * @param {string} requiredRole - Le rôle requis pour accéder à la ressource
  * @returns {function} Middleware Express
  */
-export const auth = (requiredRole) => {
-  return async (req, res, next) => {
-    try {
-      // 1. Extraction du token depuis les en-têtes de la requête
-      const token = req.header('Authorization').replace('Bearer ', '');
-      
-      // 2. Vérification et décodage du token avec la clé secrète
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      // 3. Vérification du rôle si un rôle est requis
-      if (requiredRole && decoded.role !== requiredRole) {
-        throw new Error('Permissions insuffisantes');
-      }
-      
-      // 4. Ajout des informations utilisateur décodées à l'objet req
-      req.user = decoded;
-      
-      // 5. Passage au middleware suivant
-      next();
-    } catch (err) {
-      // Gestion des erreurs (token invalide, expiration, etc.)
-      res.status(401).json({ 
-        message: 'Authentification requise',
-        error: err.message 
-      });
-    }
-  };
-};
+// middleware/auth.js
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+import Course from '../models/Course.js';
+import ApiError from '../utils/ApiError.js';
 
 /**
  * Middleware d'authentification de base
- * Vérifie simplement la présence et la validité du token
+ * Vérifie le token et attache l'utilisateur à la requête
  */
+// middleware/auth.js
+// middleware/auth.js
 export const authenticate = (req, res, next) => {
   // Extraction optionnelle du token (utilisation de l'opérateur ?.)
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -63,20 +40,15 @@ export const authenticate = (req, res, next) => {
   }
 };
 
-/**
- * Middleware de vérification de rôle admin
- * Doit être utilisé APRÈS le middleware d'authentification
- */
-export const isAdmin = (req, res, next) => {
-  // Vérifie si l'utilisateur a le rôle 'admin'
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Accès refusé - Admin requis' });
+export const isSuperAdmin = (req, res, next) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Accès refusé. Seul un superadmin peut effectuer cette action'
+    });
   }
-  
-  // Si tout est OK, passe au middleware suivant
   next();
 };
-
 export const isFormateur = (req, res, next) => {
   if (req.user?.role !== 'formateur') {
     return res.status(403).json({
@@ -85,3 +57,95 @@ export const isFormateur = (req, res, next) => {
   }
   next();
 };
+export const isAdminOrSuperAdmin = (req, res, next) => {
+  const role = req.user?.role;
+
+  if (role !== 'admin' && role !== 'superadmin') {
+    return res.status(403).json({
+      success: false,
+      message: "Accès refusé. Seuls les administrateurs peuvent effectuer cette action."
+    });
+  }
+
+  next();
+};
+export const isAdmin = (req, res, next) => {
+  // Vérifie si l'utilisateur a le rôle 'admin'
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Accès refusé - Admin requis' });
+  }
+  
+  next();
+};
+
+/**
+ * Middleware générique de contrôle de rôle
+ * @param {...string} roles - Rôles autorisés
+ * @returns {function} Middleware Express
+ */
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new ApiError(403, `Accès refusé - Rôle(s) autorisé(s): ${roles.join(', ')}`)
+      );
+    }
+    next();
+  };
+};
+
+/**
+ * Middlewares spécifiques par rôle (pour plus de commodité)
+ */
+export const isEtudiant = authorize('etudiant');
+export const isAdminOrFormateur = authorize('superadmin', 'admin', 'formateur');
+
+/**
+ * Vérifie que l'utilisateur est propriétaire du cours
+ */
+export const isCourseOwner = async (req, res, next) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    
+    if (!course) {
+      return next(new ApiError(404, 'Cours non trouvé'));
+    }
+
+    if (course.createdBy.toString() !== req.user._id.toString()) {
+      return next(new ApiError(403, 'Vous n\'êtes pas le propriétaire de ce cours'));
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Middleware pour vérifier la propriété ou les droits admin
+ */
+export const isOwnerOrAdmin = async (req, res, next) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    
+    if (!course) {
+      return next(new ApiError(404, 'Cours non trouvé'));
+    }
+
+    const isOwner = course.createdBy.toString() === req.user._id.toString();
+    const isAdmin = ['superadmin', 'admin'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return next(new ApiError(403, 'Action non autorisée'));
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+
+

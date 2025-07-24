@@ -16,35 +16,34 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setError('');
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-  try {
-    const res = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', res.data.token);
-    login(res.data.user, res.data.token);
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      localStorage.setItem('token', res.data.token);
+      login(res.data.user, res.data.token);
 
-    // Debug: Vérifiez les données reçues
-    console.log('User role:', res.data.user.role);
-    
-    const role = res.data.user.role.toLowerCase();
+      console.log('User role:', res.data.user.role);
+      
+      const role = res.data.user.role.toLowerCase();
 
-if (role === 'admin' || role === 'superadmin') {
-  navigate('/admin');
-} else if (role === 'formateur') {
-  navigate('/formateur/dashboard');
-} else if (role === 'etudiant') {
-  navigate('/etudiant');
-} else {
-  navigate('/');
-}
-
+      if (role === 'admin' || role === 'superadmin') {
+        navigate('/admin');
+      } else if (role === 'formateur') {
+        navigate('/formateur/dashboard');
+      } else if (role === 'etudiant') {
+        navigate('/etudiant');
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la connexion');
+    } finally {
+      setIsLoading(false);
     }
-   catch (err) {
-    // Gestion d'erreur...
-  }
-};
+  };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -54,7 +53,6 @@ if (role === 'admin' || role === 'superadmin') {
     <div className="auth-container">
       <header className="auth-header">
         <div className="header-content">
-          
           <h1 className="logo">EduPlatform</h1>
         </div>
       </header>
@@ -63,7 +61,6 @@ if (role === 'admin' || role === 'superadmin') {
         <div className="auth-card">
           <div className="card-header">
             <h2>Connectez-vous à votre compte</h2>
-            
           </div>
 
           {error && (
@@ -81,7 +78,6 @@ if (role === 'admin' || role === 'superadmin') {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                
                 required
               />
             </div>
@@ -93,14 +89,12 @@ if (role === 'admin' || role === 'superadmin') {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  autoComplete="username"
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
                 <button
                   type="button"
                   className="toggle-password"
-                  autoComplete="current-password"
                   onClick={togglePasswordVisibility}
                   aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                 >
@@ -110,17 +104,7 @@ if (role === 'admin' || role === 'superadmin') {
             </div>
 
             <div className="form-options">
-              <div className="remember-me">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <label htmlFor="remember-me">Se souvenir de moi</label>
-              </div>
-              
-              <Link to="/mot-de-passe-oublie" className="forgot-password">
+              <Link to="/forgot-password" className="forgot-password">
                 Mot de passe oublié ?
               </Link>
             </div>

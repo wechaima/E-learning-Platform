@@ -12,28 +12,13 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: {
     type: String,
-    enum: ['admin', 'formateur', 'etudiant'],
-    default: 'etudiant',
-    validate: {
-      validator: async function(v) {
-        if (v === 'admin') {
-          const existingAdmin = await mongoose.model('User').findOne({ role: 'admin' });
-          return !existingAdmin;
-        }
-        return true;
-      },
-      message: 'Un seul compte admin est autorisé'
-    }
+    enum: ['superadmin', 'admin', 'formateur', 'etudiant'],
+    default: 'etudiant'
   },
-  specialite: { type: String } // Pour les formateurs
+  specialite: { type: String }, // Pour les formateurs
+   resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, { timestamps: true });
 
-// Empêche la modification du rôle admin
-UserSchema.pre('save', function(next) {
-  if (this.isModified('role') && this._originalRole === 'admin') {
-    throw new Error('Modification du rôle admin interdite');
-  }
-  next();
-});
 
 export default mongoose.model('User', UserSchema);

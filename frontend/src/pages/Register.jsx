@@ -48,7 +48,7 @@ export default function Register() {
         <div className="auth-card">
           <div className="card-header">
             <h2>Créez votre compte</h2>
-            <p>Rejoignez notre communauté d'apprentissage</p>
+           
           </div>
 
           {error && (
