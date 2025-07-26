@@ -40,6 +40,42 @@ export const authenticate = (req, res, next) => {
   }
 };
 
+export const protect = async (req, res, next) => {
+  try {
+    let token;
+    
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non autorisé - Token manquant'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    res.status(401).json({
+      success: false,
+      message: 'Non autorisé - Token invalide',
+      error: error.message
+    });
+  }
+};
+
 export const isSuperAdmin = (req, res, next) => {
   if (req.user.role !== 'superadmin') {
     return res.status(403).json({
@@ -53,6 +89,14 @@ export const isFormateur = (req, res, next) => {
   if (req.user?.role !== 'formateur') {
     return res.status(403).json({
       message: 'Accès refusé. Seuls les formateurs peuvent effectuer cette action'
+    });
+  }
+  next();
+};
+export const isEtudiant = (req, res, next) => {
+  if (req.user?.role !== 'etudiant') {
+    return res.status(403).json({
+      message: 'Accès refusé. Seuls les etudaints peuvent effectuer cette action'
     });
   }
   next();
@@ -97,7 +141,7 @@ export const authorize = (...roles) => {
 /**
  * Middlewares spécifiques par rôle (pour plus de commodité)
  */
-export const isEtudiant = authorize('etudiant');
+
 export const isAdminOrFormateur = authorize('superadmin', 'admin', 'formateur');
 
 /**

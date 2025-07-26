@@ -1,23 +1,75 @@
 import express from 'express';
-import { 
-  createCourse, 
-  getAllCourses, 
+import {
+ 
+  followCourse,
+  getCourseWithProgress,
+  getAllCourses,
   getCourseById,
   updateCourse,
-  deleteCourse
+  deleteCourse,
+  getFollowedCourses,
+  createSection,
+  updateSection,
+  deleteSection,
+  
+  updateChapter,
+  deleteChapter,
+  getCourseDetails,
+  updateSectionProgress,
+  completeQuiz,
+  getProgress,
+  createCourse,
+  createChapter,
+  
 } from '../controllers/courseController.js';
-import { authenticate, isFormateur } from '../midddleware/auth.js';
 
+import { authenticate, isEtudiant, isFormateur, protect } from '../midddleware/auth.js';
 
 const router = express.Router();
 
+
+router.get('/:id', authenticate, getCourseById);
+router.post('/:courseId/sections', authenticate, updateSectionProgress);
+router.post('/:courseId/quizzes', authenticate, completeQuiz);
+router.get('/:courseId/progress', authenticate, getProgress);
 // Routes publiques
 router.get('/', getAllCourses);
 router.get('/:id', getCourseById);
+// routes/courseRoutes.js
+router.get('/:id', getCourseDetails);
+// Routes protégées
+router.use(protect);
 
-// Routes protégées (formateur seulement)
-router.post('/', authenticate, isFormateur, createCourse);
-router.put('/:id', authenticate, isFormateur, updateCourse);
-router.delete('/:id', authenticate, isFormateur, deleteCourse);
+// Routes étudiant
+router.post('/:courseId/follow',isEtudiant, followCourse);
+router.get('/:courseId/progress', isEtudiant, getCourseWithProgress);
+// Récupérer les cours suivis par un utilisateur
+// Mettre à jour la progression d'une section
+router.post('/:courseId/sections', authenticate, updateSectionProgress);
+
+// Marquer un quiz comme complété
+router.post('/:courseId/quizzes', authenticate, completeQuiz);
+
+
+
+
+// GET /api/users/:userId/followed-courses
+router.get('/:userId/followed-courses', isEtudiant,getFollowedCourses);
+// Routes formateur
+
+router.post('/',isFormateur, createCourse);
+router.put('/:id',isFormateur, updateCourse);
+router.delete('/:id', isFormateur,deleteCourse);
+// Chapter routes
+router.post('/:id/chapters', isFormateur, createChapter);
+router.put('/:id/chapters/:chapterId', isFormateur, updateChapter);
+router.delete('/:id/chapters/:chapterId', isFormateur, deleteChapter);
+// ... existing imports and routes ...
+
+// Section routes
+router.post('/:id/chapters/:chapterId/sections', isFormateur, createSection);
+router.put('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, updateSection);
+router.delete('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, deleteSection);
+
 
 export default router;

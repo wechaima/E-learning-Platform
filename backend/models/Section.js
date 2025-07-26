@@ -1,10 +1,11 @@
 import { Schema, model } from 'mongoose';
 
 const sectionSchema = new Schema({
-  courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
-  title: String,
-  description: String,
-  videoUrl: String // facultatif
-});
+  title: { type: String, required: true },
+  chapterId: { type: Schema.Types.ObjectId, ref: 'Chapter', required: true },
+  content: { type: String },
+  videoUrl: { type: String },
+  order: { type: Number, required: true }
+}, { timestamps: true });
 
 export default model('Section', sectionSchema);

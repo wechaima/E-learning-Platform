@@ -8,6 +8,7 @@ import visiteurRoutes from './routes/visiteurRoutes.js';
 import formateurRoutes from './routes/formateurRoutes.js';
 import courseRoutes from './routes/courseRoutes.js';
 import adminRoutes from './routes/admin.js';
+import progressRoutes from './routes/progress.js';
 
 
 
@@ -26,7 +27,9 @@ app.use('/api', visiteurRoutes);
 app.use('/api/formateur', formateurRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/auth', adminRoutes);
-
+app.use('/api/users', courseRoutes);
+// Après les autres app.use()
+app.use('/api/progress', progressRoutes);
 // Gestion des erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);

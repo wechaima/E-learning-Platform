@@ -1,13 +1,13 @@
 import { Schema, model } from 'mongoose';
 
 const courseSchema = new Schema({
-  title: String,
-  description: String,
-  imageUrl: String,
-  category: { type: String, required: true }, // 🆕 Ajout de catégorie
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  imageUrl: { type: String, default: 'default-course.jpg' },
+  chapters: [{ type: Schema.Types.ObjectId, ref: 'Chapter' }],
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  sections: [{ type: Schema.Types.ObjectId, ref: 'Section' }],
-  quiz: { type: Schema.Types.ObjectId, ref: 'Quiz' }
-});
+  followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  followerCount: { type: Number, default: 0 }
+}, { timestamps: true });
 
 export default model('Course', courseSchema);

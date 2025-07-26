@@ -9,8 +9,9 @@ import FormateurDashboard from './pages/formateur/FormateurDashboard';
 
 import { Navigate } from 'react-router-dom';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
-import CourseDetail from './pages/cours/CourseDetail';
+
 import { ForgotPassword } from './pages/ForgotPassword';
+import CourseDetail from './pages/etudiant/CourseDetail';
 
 
 function App() {
@@ -38,7 +39,7 @@ function App() {
             <Route element={<ProtectedRoute allowedRoles={['etudiant']} />}>
   <Route path="/etudiant/*" element={<EtudiantDashboard />} />
 </Route>
-<Route path="/cours/:id" element={<CourseDetail />} />
+<Route path="/cours/:id" element={<CourseDetail  />} />
             {/* Gestion des routes inconnues */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

@@ -1,71 +1,107 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import './CourseDetail.css';
-import api from '../../api/axios';
-import { FiArrowLeft, FiCheckCircle, FiPlay, FiBarChart2 } from 'react-icons/fi';
+import { 
+  FiArrowLeft, 
+  FiCheckCircle, 
+  FiChevronDown, 
+  FiChevronUp,
+  FiBarChart2
+} from 'react-icons/fi';
 
-function CourseDetail() {
-  const { id } = useParams();
+import './CourseDetail.css';
+
+const CourseDetail = () => {
+  const { id: courseId } = useParams();
   const navigate = useNavigate();
   const [course, setCourse] = useState(null);
+  const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeChapter, setActiveChapter] = useState(0);
   const [activeSection, setActiveSection] = useState(0);
-  const [showQuiz, setShowQuiz] = useState(false);
+  const [expandedChapters, setExpandedChapters] = useState({});
 
   useEffect(() => {
-    if (!id) {
-      setError('ID de cours invalide');
-      setLoading(false);
-      return;
-    }
-    const fetchCourse = async () => {
+    const fetchData = async () => {
       try {
-        console.log('Fetching course with ID:', id);
-        const res = await api.get(`/courses/${id}`);
-        if (res.data.success) {
-          setCourse(res.data.data);
-        } else {
-          setError(res.data.message || 'Erreur lors du chargement du cours');
+        setLoading(true);
+        
+        // Charger les données du cours (remplacer par votre appel API)
+        const courseRes = await fetchCourseData(courseId);
+        setCourse(courseRes.data);
+
+        // Charger ou initialiser la progression
+        try {
+          const progressRes = await getProgress(courseId);
+          setProgress(progressRes.data);
+        } catch (err) {
+          if (err.response?.status === 404) {
+            const newProgress = await initializeProgress(courseId);
+            setProgress(newProgress.data);
+          } else {
+            throw err;
+          }
         }
-        setLoading(false);
+
       } catch (err) {
-        console.log('Error response:', err.response?.data);
-        setError('Erreur lors du chargement du cours');
+        setError(err.response?.data?.message || 'Erreur de chargement');
+      } finally {
         setLoading(false);
-        console.error(err);
       }
     };
-    fetchCourse();
-  }, [id]);
 
-  const handleStartQuiz = () => {
-    setShowQuiz(true);
+    fetchData();
+  }, [courseId]);
+
+  const toggleChapter = (chapterIndex) => {
+    setExpandedChapters(prev => ({
+      ...prev,
+      [chapterIndex]: !prev[chapterIndex]
+    }));
+  };
+
+  const handleSectionSelect = async (chapterIndex, sectionIndex, sectionId) => {
+    // Vérifier si la section précédente est complétée
+    if (sectionIndex > 0) {
+      const prevSection = course.chapters[chapterIndex].sections[sectionIndex - 1];
+      if (!progress?.completedSections?.includes(prevSection._id)) {
+        alert('Veuillez compléter la section précédente avant de continuer');
+        return;
+      }
+    }
+
+    setActiveChapter(chapterIndex);
+    setActiveSection(sectionIndex);
   };
 
   const handleCompleteSection = async () => {
     try {
-      await api.post('/progress/update', {
-        courseId: id,
-        progress: Math.min(100, ((activeSection + 1) / (course.sections.length || 1)) * 100)
-      });
+      const sectionId = course.chapters[activeChapter].sections[activeSection]._id;
       
-      if (activeSection < (course.sections.length - 1)) {
+      // Mettre à jour la progression
+      const updatedProgress = await updateProgress(courseId, sectionId);
+      setProgress(updatedProgress.data);
+
+      // Passer à la section suivante si disponible
+      if (activeSection < course.chapters[activeChapter].sections.length - 1) {
         setActiveSection(activeSection + 1);
+      } else if (activeChapter < course.chapters.length - 1) {
+        setActiveChapter(activeChapter + 1);
+        setActiveSection(0);
       } else {
-        await api.post('/progress/complete', { courseId: id });
+        // Terminer le cours si c'est la dernière section
+        await completeCourse(courseId);
         alert('Félicitations! Vous avez terminé ce cours!');
       }
     } catch (err) {
-      console.error('Erreur mise à jour progression:', err);
+      console.error('Erreur:', err);
+      alert('Erreur lors de la mise à jour de la progression');
     }
   };
 
   if (loading) return <div className="loading">Chargement en cours...</div>;
   if (error) return <div className="error">{error}</div>;
   if (!course) return <div className="not-found">Cours non trouvé</div>;
-
-  const totalProgress = course.progress || 0;
 
   return (
     <div className="course-detail-container">
@@ -75,101 +111,113 @@ function CourseDetail() {
 
       <div className="course-header">
         <h1>{course.title}</h1>
-        <div className="course-meta">
-          <span className="course-instructor">Par: {course.createdBy?.prenom} {course.createdBy?.nom}</span>
-          <span className="progress-bar">
-            <FiBarChart2 /> Progression: {totalProgress}%
-            <div className="progress-fill" style={{ width: `${totalProgress}%` }}></div>
-          </span>
+        <div className="progress-display">
+          <FiBarChart2 /> Progression: {progress?.progress || 0}%
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${progress?.progress || 0}%` }}
+            ></div>
+          </div>
         </div>
-        <p className="course-description">{course.description}</p>
       </div>
 
       <div className="course-content">
         <div className="sections-sidebar">
           <h3>Plan du cours</h3>
-          <ul>
-            {course.sections.map((section, index) => (
-              <li
-                key={section._id}
-                className={index === activeSection ? 'active' : ''}
-                onClick={() => setActiveSection(index)}
+          {course.chapters.map((chapter, chapterIndex) => (
+            <div key={chapter._id} className="chapter-item">
+              <div 
+                className="chapter-header"
+                onClick={() => toggleChapter(chapterIndex)}
               >
-                <span className="section-number">{index + 1}</span>
-                <div className="section-info">
-                  <h4>{section.title}</h4>
-                  <p>{section.description.substring(0, 60)}...</p>
-                </div>
-                {index < activeSection && <FiCheckCircle className="completed-icon" />}
-              </li>
-            ))}
-          </ul>
+                <h4>
+                  <span className="chapter-number">{chapterIndex + 1}.</span>
+                  {chapter.title}
+                </h4>
+                {expandedChapters[chapterIndex] ? <FiChevronUp /> : <FiChevronDown />}
+              </div>
+
+              {expandedChapters[chapterIndex] && (
+                <ul className="sections-list">
+                  {chapter.sections.map((section, sectionIndex) => (
+                    <li
+                      key={section._id}
+                      className={`section-item ${
+                        chapterIndex === activeChapter && 
+                        sectionIndex === activeSection ? 'active' : ''
+                      } ${
+                        progress?.completedSections?.includes(section._id) ? 'completed' : ''
+                      }`}
+                      onClick={() => handleSectionSelect(
+                        chapterIndex, 
+                        sectionIndex, 
+                        section._id
+                      )}
+                    >
+                      <span className="section-number">
+                        {chapterIndex + 1}.{sectionIndex + 1}
+                      </span>
+                      <span className="section-title">{section.title}</span>
+                      {progress?.completedSections?.includes(section._id) && (
+                        <FiCheckCircle className="completed-icon" />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
         </div>
 
         <div className="section-content">
-          {!showQuiz ? (
+          {course.chapters[activeChapter]?.sections[activeSection] ? (
             <>
               <div className="section-header">
                 <h2>
-                  <span className="section-number">{activeSection + 1}.</span>
-                  {course.sections[activeSection].title}
+                  <span className="section-number">
+                    {activeChapter + 1}.{activeSection + 1}
+                  </span>
+                  {course.chapters[activeChapter].sections[activeSection].title}
                 </h2>
-                <p>{course.sections[activeSection].description}</p>
+                <p>
+                  {course.chapters[activeChapter].sections[activeSection].description}
+                </p>
               </div>
 
-              {course.sections[activeSection].videoUrl && (
-                <div className="video-container">
-                  <iframe
-                    src={course.sections[activeSection].videoUrl}
-                    title={course.sections[activeSection].title}
-                    allowFullScreen
-                  ></iframe>
-                </div>
-              )}
+              <div className="section-media">
+                {course.chapters[activeChapter].sections[activeSection].videoUrl && (
+                  <div className="video-container">
+                    <iframe
+                      src={course.chapters[activeChapter].sections[activeSection].videoUrl}
+                      title={course.chapters[activeChapter].sections[activeSection].title}
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                )}
+              </div>
 
               <div className="section-actions">
-                {activeSection > 0 && (
-                  <button
-                    onClick={() => setActiveSection(activeSection - 1)}
-                    className="secondary-button"
-                  >
-                    Précédent
-                  </button>
-                )}
                 <button
                   onClick={handleCompleteSection}
-                  className="primary-button"
+                  className="complete-button"
+                  disabled={progress?.completedSections?.includes(
+                    course.chapters[activeChapter].sections[activeSection]._id
+                  )}
                 >
-                  <FiPlay /> {activeSection < course.sections.length - 1 ? 'Suivant' : 'Terminer'}
+                  Marquer comme complété
                 </button>
-                {activeSection === course.sections.length - 1 && (
-                  <button
-                    onClick={handleStartQuiz}
-                    className="quiz-button"
-                  >
-                    Quiz
-                  </button>
-                )}
               </div>
             </>
           ) : (
-            <div className="quiz-container">
-              <h2>Quiz: {course.title}</h2>
-              <div className="quiz-content">
-                <p>Contenu du quiz à implémenter (exemple : questions/réponses)</p>
-                <button
-                  onClick={() => setShowQuiz(false)}
-                  className="secondary-button"
-                >
-                  Retour
-                </button>
-              </div>
+            <div className="no-section">
+              Sélectionnez une section pour commencer
             </div>
           )}
         </div>
       </div>
     </div>
   );
-}
+};
 
 export default CourseDetail;
