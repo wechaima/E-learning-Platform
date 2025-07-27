@@ -1,232 +1,103 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate, Link } from 'react-router-dom';
-import { Menu, MenuItem, MenuButton } from '@szhsin/react-menu';
-import '@szhsin/react-menu/dist/index.css';
-import '@szhsin/react-menu/dist/transitions/slide.css';
-import { FiUser } from 'react-icons/fi';
-import { PlusIcon } from '@heroicons/react/outline';
-import { useAuth } from '../../context/AuthContext';
-import axios from '../../api/axios';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import './FormateurDashboard.css';
-import CourseList from '../../components/formateurs/CourseList/CourseListe';
-import AddCourseModal from '../../components/formateurs/AddCourseModal/AddCourseModal';
-import LoadingSpinner from '../../components/formateurs/ui/LoadingSpinner';
-import ErrorMessage from '../../components/formateurs/ui/ErreurMessage';
 
-
-const DashboardFormateur = ({ onLogout }) => {
-  const { user } = useAuth();
+const FormateurDashboard = () => {
   const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showAddCourseModal, setShowAddCourseModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
 
-  const defaultAvatar = '/default-avatar.png';
-
   useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
+    fetchCourses();
+  }, []);
 
-    const fetchFormateurCourses = async () => {
-      try {
-        if (!user?.id) {
-          throw new Error('Authentification requise');
-        }
-
-        setLoading(true);
-        setError(null);
-
-        const response = await axios.get('/courses', {
-          params: { instructor: user.id },
-          signal: controller.signal
-        });
-
-        if (isMounted) {
-          setCourses(response.data.data || []);
-        }
-      } catch (err) {
-        if (isMounted) {
-          if (err.name !== 'CanceledError') {
-            console.error('Erreur:', err);
-            setError(err.response?.data?.message || 
-                    err.message || 
-                    'Erreur lors du chargement des cours');
-            
-            if (err.response?.status === 401) {
-              navigate('/login', { replace: true });
-            }
-          }
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchFormateurCourses();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, [user, navigate]);
-
-  const handleAddCourse = async (newCourse) => {
+  const fetchCourses = async () => {
     try {
-      setError(null);
-      const response = await axios.post('/courses', {
-        ...newCourse,
-        createdBy: user.id
+      const response = await axios.get('/courses', {
+        params: { instructor: 'currentUserId' } // Replace with actual user ID from auth
       });
-      
-      setCourses(prev => [...prev, response.data.data]);
-      setShowAddCourseModal(false);
-    } catch (err) {
-      console.error('Erreur:', err);
-      setError(err.response?.data?.message || 
-              'Erreur lors de la création du cours');
+      setCourses(response.data.data);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des cours:', error);
     }
   };
 
-  const handleUpdateCourse = async (courseId, updatedData) => {
-    try {
-      setError(null);
-      const response = await axios.put(`/courses/${courseId}`, updatedData);
-      setCourses(prev => 
-        prev.map(c => c._id === courseId ? response.data.data : c)
-      );
-    } catch (err) {
-      console.error('Erreur:', err);
-      setError(err.response?.data?.message || 
-              'Erreur lors de la mise à jour du cours');
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    if (e.target.value) {
+      axios.get('/courses', {
+        params: { search: e.target.value, instructor: 'currentUserId' }
+      }).then(response => setCourses(response.data.data));
+    } else {
+      fetchCourses();
     }
   };
 
-  const handleDeleteCourse = async (courseId) => {
-    try {
-      setError(null);
-      await axios.delete(`/courses/${courseId}`);
-      setCourses(prev => prev.filter(c => c._id !== courseId));
-    } catch (err) {
-      console.error('Erreur:', err);
-      setError(err.response?.data?.message || 
-              'Erreur lors de la suppression du cours');
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
   };
 
-  const handleCourseClick = (courseId) => {
-    navigate(`/formateur/cours/${courseId}`);
-  };
-
-  const handleRetry = () => {
-    setError(null);
-    setLoading(true);
-    // Le useEffect se déclenchera automatiquement
+  const handleProfile = () => {
+    navigate('/profile');
   };
 
   return (
-    <div className="dashboard-formateur">
+    <div className="dashboard-container">
       {/* AppBar */}
-      <header className="formateur-appbar">
+      <header className="appbar">
         <div className="appbar-content">
-          <h1>Tableau de bord Formateur</h1>
-          
-          <Menu
-            menuButton={
-              <MenuButton className="profile-button">
-                <div className="profile-content">
-                  <img 
-                    src={user?.avatar || defaultAvatar} 
-                    alt="Profil" 
-                    className="profile-avatar"
-                    onError={(e) => {
-                      e.target.src = defaultAvatar;
-                    }}
-                  />
-                  <span>{user?.prenom || 'Formateur'}</span>
-                  <FiUser className="user-icon" />
+          <h1 className="appbar-title">Tableau de bord Formateur</h1>
+          <div className="appbar-actions">
+            <input
+              type="text"
+              placeholder="Rechercher des cours..."
+              value={searchTerm}
+              onChange={handleSearch}
+              className="search-input"
+            />
+            <div className="user-menu-container">
+              <button 
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="user-icon-button"
+              >
+                <svg className="user-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </button>
+              {showUserMenu && (
+                <div className="user-menu">
+                  <button onClick={handleProfile} className="menu-item">
+                    Profil
+                  </button>
+                  <button onClick={handleLogout} className="menu-item">
+                    Déconnexion
+                  </button>
                 </div>
-              </MenuButton>
-            }
-            align="end"
-            arrow
-            transition
-            menuClassName="profile-menu"
-          >
-            <MenuItem className="menu-item">
-              <Link to="/formateur/profil" className="menu-link">
-                Profil
-              </Link>
-            </MenuItem>
-            <MenuItem className="menu-item">
-              <Link to="/formateur/parametres" className="menu-link">
-                Paramètres
-              </Link>
-            </MenuItem>
-            <MenuItem className="menu-item" onClick={onLogout}>
-              <span className="menu-link">Déconnexion</span>
-            </MenuItem>
-          </Menu>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Contenu principal */}
-      <main className="formateur-content">
-        {error && (
-          <ErrorMessage 
-            message={error} 
-            onRetry={handleRetry} 
-            className="dashboard-error" 
-          />
-        )}
-
-        <div className="courses-header">
-          <h2>Mes Cours {!loading && `(${courses.length})`}</h2>
-          <button 
-            className="add-course-button"
-            onClick={() => setShowAddCourseModal(true)}
-            disabled={loading}
-          >
-            <PlusIcon className="plus-icon" />
-            Ajouter un cours
-          </button>
+      {/* Course List */}
+      <main className="courses-container">
+        <h2 className="section-title">Mes Cours</h2>
+        <div className="courses-grid">
+          {courses.map(course => (
+            <div key={course._id} className="course-card">
+              <h3 className="course-title">{course.title}</h3>
+              <p className="course-info">
+                Abonnés: {course.followers?.length || 0}
+              </p>
+            </div>
+          ))}
         </div>
-
-        {loading ? (
-          <LoadingSpinner fullScreen={false} text="Chargement des cours..." />
-        ) : courses.length === 0 ? (
-          <div className="empty-state">
-            <p>Vous n'avez pas encore créé de cours</p>
-            <button 
-              className="primary-button"
-              onClick={() => setShowAddCourseModal(true)}
-            >
-              Créer mon premier cours
-            </button>
-          </div>
-        ) : (
-          <CourseList 
-            courses={courses} 
-            onCourseClick={handleCourseClick}
-            onUpdateCourse={handleUpdateCourse}
-            onDeleteCourse={handleDeleteCourse}
-            isFormateur={true}
-          />
-        )}
       </main>
-
-      {/* Modal d'ajout de cours */}
-      <AddCourseModal
-        isOpen={showAddCourseModal}
-        onClose={() => setShowAddCourseModal(false)}
-        onSubmit={handleAddCourse}
-      />
-
-      <Outlet />
     </div>
   );
 };
 
-export default DashboardFormateur;
+export default FormateurDashboard;

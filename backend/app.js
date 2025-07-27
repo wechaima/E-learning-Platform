@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin.js';
 import progressRoutes from './routes/progress.js';
 
 
+import userRoutes from './routes/user.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/auth', adminRoutes);
 app.use('/api/users', courseRoutes);
 // Après les autres app.use()
 app.use('/api/progress', progressRoutes);
+app.use('/api/user', userRoutes);
 // Gestion des erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);

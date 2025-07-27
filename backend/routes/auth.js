@@ -11,7 +11,7 @@ import {
   
  
 } from '../controllers/authController.js';
-import {   authenticate,  isAdminOrSuperAdmin } from '../midddleware/auth.js';
+import {     authenticate, isAdminOrSuperAdmin } from '../midddleware/auth.js';
 
 
 

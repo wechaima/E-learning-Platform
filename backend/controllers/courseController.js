@@ -896,10 +896,6 @@ export const deleteSection = async (req, res) => {
 };
 
 
-
-
-
-
 export const getCourseById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1072,6 +1068,31 @@ export const getProgress = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération de la progression',
+    });
+  }
+};
+export const checkSubscription = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cours non trouvé'
+      });
+    }
+
+    const isSubscribed = course.followers.includes(req.user.id);
+    
+    res.status(200).json({
+      success: true,
+      isSubscribed
+    });
+
+  } catch (err) {
+    console.error('Error checking subscription:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
     });
   }
 };

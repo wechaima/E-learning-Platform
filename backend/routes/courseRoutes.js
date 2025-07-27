@@ -20,6 +20,7 @@ import {
   getProgress,
   createCourse,
   createChapter,
+  checkSubscription,
   
 } from '../controllers/courseController.js';
 
@@ -46,7 +47,8 @@ router.get('/:courseId/progress', isEtudiant, getCourseWithProgress);
 // Récupérer les cours suivis par un utilisateur
 // Mettre à jour la progression d'une section
 router.post('/:courseId/sections', authenticate, updateSectionProgress);
-
+// Dans votre fichier de routes (ex: courseRoutes.js)
+router.get('/:id/check-subscription', authenticate, isEtudiant, checkSubscription);
 // Marquer un quiz comme complété
 router.post('/:courseId/quizzes', authenticate, completeQuiz);
 

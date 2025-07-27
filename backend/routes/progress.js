@@ -1,21 +1,16 @@
 import express from 'express';
 import { 
-  getProgress, 
-
-  
+  getProgress,
+  getUserProgress
 } from '../controllers/progressController.js';
-import { authenticate } from '../midddleware/auth.js';
-import { updateProgress } from '../controllers/courseController.js';
-
+import { authenticate, isEtudiant } from '../midddleware/auth.js';
 
 const router = express.Router();
 
-// Obtenir la progression
+// Route pour la progression d'un cours spécifique
 router.get('/:courseId', authenticate, getProgress);
 
-
-
-// Mettre à jour la progression
-router.post('/:courseId/update', authenticate, updateProgress);
+// Route pour toutes les progressions de l'utilisateur
+router.get('/', authenticate, isEtudiant, getUserProgress);
 
 export default router;
