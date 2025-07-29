@@ -93,11 +93,14 @@ const CourseDetail = () => {
     try {
       const chapterId = course.chapters[chapterIndex]._id;
       const sectionId = course.chapters[chapterIndex].sections[sectionIndex]._id;
+      console.log('Envoi de la progression:', { chapterId, sectionId });
+
       await api.post(
         `/courses/${id}/sections`,
         { chapterId, sectionId },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );
+      );console.log('Envoi de la progression:', { chapterId, sectionId });
+
       const response = await api.get(`/courses/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -336,16 +339,17 @@ const CourseDetail = () => {
         ) : currentContent.type === 'section' && currentSection ? (
           <div className="section-content">
             <h3 className="section-title">{currentSection.title}</h3>
-            {currentSection.videoUrl && (
-              <div className="video-container">
-                <iframe
-                  src={currentSection.videoUrl}
-                  title={currentSection.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )}
+           {currentSection.videoUrl?.startsWith('http') && (
+  <div className="video-container">
+    <iframe
+      src={currentSection.videoUrl}
+      title={currentSection.title}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    />
+  </div>
+)}
+
             <div className="text-content">{currentSection.content || 'Aucun contenu disponible'}</div>
           </div>
         ) : currentContent.type === 'quiz' && currentQuiz ? (

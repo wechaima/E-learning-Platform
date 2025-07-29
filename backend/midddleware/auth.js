@@ -39,7 +39,55 @@ export const authenticate = (req, res, next) => {
     res.status(401).json({ message: 'Token invalide' });
   }
 };
+// authMiddleware.js
 
+
+export const auth = async (req, res, next) => {
+  const authHeader = req.header('Authorization');
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ 
+      success: false,
+      message: 'Token manquant ou mal formaté',
+      code: 'INVALID_AUTH_HEADER'
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Standardisation de la structure utilisateur
+    req.user = {
+      _id: decoded.id, // Conversion explicite de id vers _id
+      role: decoded.role
+    };
+
+    // Vérification de la présence des champs requis
+    if (!req.user._id || !req.user.role) {
+      throw new Error('Structure de token invalide');
+    }
+
+    next();
+  } catch (err) {
+    console.error('Erreur d\'authentification:', {
+      error: err.message,
+      token: token.slice(0, 10) + '...' + token.slice(-10), // Log partiel
+      timestamp: new Date().toISOString()
+    });
+
+    const message = err.name === 'TokenExpiredError' 
+      ? 'Session expirée' 
+      : 'Token invalide';
+
+    res.status(401).json({ 
+      success: false,
+      message,
+      code: err.name || 'AUTH_ERROR'
+    });
+  }
+};
 export const protect = async (req, res, next) => {
   try {
     let token;

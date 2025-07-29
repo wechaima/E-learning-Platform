@@ -976,8 +976,15 @@ export const updateSectionProgress = async (req, res) => {
       0
     );
     progress.overallProgress = Math.round((completedSections / totalSections) * 100);
+    progress.markModified('chapterProgress');
+    console.log('PROGRESS TO SAVE:', JSON.stringify(progress, null, 2));
 
-    await progress.save();
+  //  await progress.save();
+try {
+  await progress.save();
+} catch (saveErr) {
+  console.error('Erreur lors de l\'enregistrement de la progression :', saveErr);
+}
 
     res.json({ success: true, data: progress });
   } catch (err) {
@@ -985,6 +992,7 @@ export const updateSectionProgress = async (req, res) => {
     res.status(500).json({ success: false, message: 'Erreur lors de la mise à jour de la progression' });
   }
 };
+
 
 export const completeQuiz = async (req, res) => {
   try {
@@ -1054,7 +1062,6 @@ export const completeQuiz = async (req, res) => {
     res.status(500).json({ success: false, message: 'Erreur lors de la soumission du quiz' });
   }
 };
-
 export const getProgress = async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -1093,6 +1100,46 @@ export const checkSubscription = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur serveur'
+    });
+  }
+};
+
+
+export const getCoursesByCreator = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // 1. Vérifier que l'utilisateur est un formateur
+    if (userRole !== 'formateur') {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Réservé aux formateurs.'
+      });
+    }
+
+    // 2. Récupérer TOUS les cours (sans pagination)
+    const courses = await Course.find({ createdBy: userId })
+      .sort({ createdAt: -1 }) // Tri du plus récent au plus ancien
+      .populate({
+        path: 'createdBy',
+        select: 'nom prenom email' // Infos basiques du formateur
+      })
+      .select('-chapters -followers'); // Exclure les données lourdes
+
+    // 3. Renvoyer la réponse
+    res.status(200).json({
+      success: true,
+      count: courses.length,
+      data: courses
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
     });
   }
 };

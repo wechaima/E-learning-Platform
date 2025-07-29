@@ -1,6 +1,7 @@
 import Progress from '../models/Progress.js';
 import Course from '../models/Course.js';
-
+import mongoose from 'mongoose';
+const { ObjectId } = mongoose.Types;
 export const getProgress = async (req, res) => {
   try {
     const progress = await Progress.findOne({
@@ -24,125 +25,92 @@ export const getProgress = async (req, res) => {
   }
 };
 
+
+
 export const getUserProgress = async (req, res) => {
   try {
-    const userId = req.user._id;
-    
-    // 1. Récupérer tous les cours suivis par l'utilisateur avec les détails nécessaires
-    const courses = await Course.find({ followers: userId })
-      .select('_id title imageUrl')
-      .populate({
-        path: 'chapters',
-        select: '_id title sections',
-        populate: {
-          path: 'quiz',
-          select: '_id'
-        }
-      });
+    // 1. Vérification et conversion de l'ID utilisateur
+    if (!req.user?.id) {
+      return res.status(400).json({ success: false, message: "ID utilisateur manquant" });
+    }
 
-    // 2. Récupérer toutes les progressions avec les détails nécessaires
+    let userId;
+    try {
+      userId = new ObjectId(req.user.id); // Conversion explicite
+    } catch (err) {
+      return res.status(400).json({ success: false, message: "Format d'ID utilisateur invalide" });
+    }
+
+    // 2. Récupération des données AVEC logging critique
     const progressList = await Progress.find({ userId })
       .populate({
         path: 'courseId',
-        select: 'title'
+        select: 'title imageUrl',
       });
 
-    // 3. Calculer les statistiques globales
-    let totalCourses = courses.length;
-    let completedCourses = 0;
-    let averageScore = 0;
-    let totalQuizzesTaken = 0;
+    console.log("Debug - Données trouvées:", {
+      userIdRecherché: userId,
+      progressTrouvées: progressList.map(p => ({
+        courseId: p.courseId?.id,
+        overallProgress: p.overallProgress,
+        chapters: p.chapterProgress.length
+      }))
+    });
 
-    // 4. Combiner les données
-    const progressData = courses.map(course => {
-      const progress = progressList.find(p => 
-        p.courseId && p.courseId._id.toString() === course._id.toString()
-      );
-      
-      // Calculer le nombre total de sections dans le cours
-      const totalSections = course.chapters.reduce((acc, chapter) => 
-        acc + (chapter.sections?.length || 0), 0);
-
-      // Calculer les sections complétées
-      let completedSections = 0;
-      const chapterProgress = course.chapters.map(chapter => {
-        const chapProgress = progress?.chapterProgress?.find(cp => 
-          cp.chapterId.toString() === chapter._id.toString()
-        );
-        
-        completedSections += chapProgress?.completedSections?.length || 0;
-
-        return {
-          chapterId: chapter._id,
-          chapterTitle: chapter.title,
-          quizScore: chapProgress?.quizScore || null,
-          quizCompleted: chapProgress?.quizCompleted || false,
-          completedSections: chapProgress?.completedSections?.length || 0,
-          totalSections: chapter.sections?.length || 0
-        };
+    // 3. Gestion du cas "aucune progression"
+    if (progressList.length === 0) {
+      return res.json({ 
+        success: true,
+        data: { courses: [], stats: { } }
       });
+    }
 
-      // Calculer la progression globale
-      const overallProgress = totalSections > 0 
-        ? Math.round((completedSections / totalSections) * 100)
-        : 0;
+    // 4. Calcul des statistiques (adapté à votre structure de données)
+    const stats = {
+      totalCourses: progressList.length,
+      completedCourses: progressList.filter(p => p.overallProgress >= 100).length,
+      averageScore: null,
+      completionPercentage: 0
+    };
 
-      // Calculer le score moyen des quiz
-      const quizScores = chapterProgress
-        .filter(ch => ch.quizCompleted)
-        .map(ch => ch.quizScore);
-      
-      const averageQuizScore = quizScores.length > 0
-        ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length)
-        : null;
+    // 5. Calcul du score moyen des quiz
+    const allQuizScores = progressList
+      .flatMap(p => p.chapterProgress
+        .filter(cp => cp.quizCompleted)
+        .map(cp => cp.quizScore)
+      )
+      .filter(score => score !== null);
 
-      // Mettre à jour les statistiques globales
-      if (overallProgress >= 100) completedCourses++;
-      if (averageQuizScore !== null) {
-        averageScore += averageQuizScore;
-        totalQuizzesTaken++;
-      }
+    if (allQuizScores.length > 0) {
+      stats.averageScore = Math.round(allQuizScores.reduce((a, b) => a + b, 0) / allQuizScores.length);
+    }
 
-      return {
-        courseId: course._id,
-        courseTitle: course.title,
-        courseImage: course.imageUrl,
-        overallProgress,
-        averageQuizScore,
-        chapterProgress,
-        totalSections,
-        completedSections
-      };
-    });
+    // 6. Formatage de la réponse
+    const courses = progressList.map(progress => ({
+      courseId: progress.courseId?.id || null,
+      courseTitle: progress.courseId?.title || "Cours inconnu",
+      courseImage: progress.courseId?.imageUrl || null,
+      overallProgress: progress.overallProgress || 0,
+      chapterProgress: progress.chapterProgress.map(cp => ({
+        chapterId: cp.chapterId,
+        quizScore: cp.quizScore,
+        quizCompleted: cp.quizCompleted,
+        completedSections: cp.completedSections?.length || 0,
+      })),
+    }));
 
-    // Calculer la moyenne globale des quiz
-    averageScore = totalQuizzesTaken > 0 
-      ? Math.round(averageScore / totalQuizzesTaken)
-      : null;
+    res.json({ success: true, data: { courses, stats } });
 
-    res.json({ 
-      success: true, 
-      data: {
-        courses: progressData.filter(course => 
-          course.overallProgress > 0 || 
-          course.chapterProgress.some(ch => ch.quizCompleted || ch.completedSections > 0)
-        ),
-        stats: {
-          totalCourses,
-          completedCourses,
-          averageScore,
-          completionPercentage: totalCourses > 0 
-            ? Math.round((completedCourses / totalCourses) * 100)
-            : 0
-        }
-      }
-    });
   } catch (err) {
-    console.error('Error in getUserProgress:', err);
+    console.error("Erreur complète:", {
+      message: err.message,
+      stack: err.stack,
+      userIdAttempted: req.user?.id
+    });
     res.status(500).json({ 
       success: false, 
-      message: 'Erreur serveur',
-      error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      message: "Erreur serveur",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };

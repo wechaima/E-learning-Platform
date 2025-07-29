@@ -22,14 +22,11 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
 
-
 Modal.setAppElement('#root');
 
 function EtudiantDashboard() {
-  // Ajoutez ces états au début de votre composant
- const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-const [pendingUpdate, setPendingUpdate] = useState(null);
-
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState(null);
   const [allCourses, setAllCourses] = useState([]);
   const [followedCourses, setFollowedCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +36,12 @@ const [pendingUpdate, setPendingUpdate] = useState(null);
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [progressData, setProgressData] = useState([]);
+  const [progressStats, setProgressStats] = useState({
+    totalCourses: 0,
+    completedCourses: 0,
+    averageScore: null,
+    completionPercentage: 0
+  });
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -83,6 +86,29 @@ const [pendingUpdate, setPendingUpdate] = useState(null);
     fetchCourses();
   }, [user]);
 
+  useEffect(() => {
+    if (user) {
+      const loadProgressStats = async () => {
+        try {
+          const response = await api.get('/progress', {
+            headers: { Authorization: `Bearer ${user.token}` }
+          });
+          if (response.data.success) {
+            setProgressStats(response.data.data?.stats || {
+              totalCourses: 0,
+              completedCourses: 0,
+              averageScore: null,
+              completionPercentage: 0
+            });
+          }
+        } catch (err) {
+          console.error("Erreur de chargement des stats:", err);
+        }
+      };
+      loadProgressStats();
+    }
+  }, [user]);
+
   const fetchProgressData = async () => {
     try {
       const response = await api.get('/progress', {
@@ -93,7 +119,13 @@ const [pendingUpdate, setPendingUpdate] = useState(null);
         throw new Error(response.data.message || 'Erreur inconnue');
       }
 
-      setProgressData(response.data.data || []);
+      setProgressData(response.data.data?.courses || []);
+      setProgressStats(response.data.data?.stats || {
+        totalCourses: 0,
+        completedCourses: 0,
+        averageScore: null,
+        completionPercentage: 0
+      });
       setShowProgressModal(true);
       
     } catch (err) {
@@ -142,52 +174,75 @@ const [pendingUpdate, setPendingUpdate] = useState(null);
     navigate('/login');
   };
 
-const handleProfileUpdate = async (e) => {
-  e.preventDefault();
-  
-  // Vérification des champs requis
-  if (!profileForm.nom || !profileForm.prenom || !profileForm.email) {
-    return setError('Les champs nom, prénom et email sont obligatoires');
-  }
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    
+    if (!profileForm.nom || !profileForm.prenom || !profileForm.email) {
+      return setError('Les champs nom, prénom et email sont obligatoires');
+    }
 
-  // Afficher la modal de confirmation
-  setPendingUpdate(profileForm);
-  setShowConfirmationModal(true);
-};
+    setPendingUpdate(profileForm);
+    setShowConfirmationModal(true);
+  };
 
-// Ajoutez cette fonction pour gérer la confirmation
-const confirmProfileUpdate = async () => {
-  setShowConfirmationModal(false);
-  
-  try {
-    const response = await api.put(
-      '/user/profile',
-      pendingUpdate,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
+  const confirmProfileUpdate = async () => {
+    setShowConfirmationModal(false);
+    
+    try {
+      const response = await api.put(
+        '/user/profile',
+        pendingUpdate,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        const { password, ...updatedUser } = response.data.data;
+        
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setEditMode(false);
+        
+        setProfileForm({
+          nom: updatedUser.nom,
+          prenom: updatedUser.prenom,
+          email: updatedUser.email,
+          currentPassword: '',
+          newPassword: ''
+        });
+
+        toast.success('Profil mis à jour avec succès!', {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
+        
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Erreur détaillée:', err);
+      
+      let errorMessage = "Échec de la mise à jour. Veuillez réessayer.";
+      
+      if (err.response) {
+        if (err.response.status === 401) {
+          errorMessage = "Mot de passe actuel incorrect";
+        } else if (err.response.status === 400) {
+          errorMessage = err.response.data.message || "Données invalides";
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
         }
       }
-    );
 
-    if (response.data.success) {
-      const { password, ...updatedUser } = response.data.data;
-      
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setEditMode(false);
-      
-      setProfileForm({
-        nom: updatedUser.nom,
-        prenom: updatedUser.prenom,
-        email: updatedUser.email,
-        currentPassword: '',
-        newPassword: ''
-      });
-
-      // Afficher le toast de succès
-      toast.success('Profil mis à jour avec succès!', {
+      toast.error(errorMessage, {
         position: "top-right",
         autoClose: 5000,
         hideProgressBar: false,
@@ -197,41 +252,13 @@ const confirmProfileUpdate = async () => {
         progress: undefined,
       });
       
-      setError(null);
+      setProfileForm(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: ''
+      }));
     }
-  } catch (err) {
-    console.error('Erreur détaillée:', err);
-    
-    let errorMessage = "Échec de la mise à jour. Veuillez réessayer.";
-    
-    if (err.response) {
-      if (err.response.status === 401) {
-        errorMessage = "Mot de passe actuel incorrect";
-      } else if (err.response.status === 400) {
-        errorMessage = err.response.data.message || "Données invalides";
-      } else if (err.response.data && err.response.data.message) {
-        errorMessage = err.response.data.message;
-      }
-    }
-
-    // Afficher le toast d'erreur
-    toast.error(errorMessage, {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
-    
-    setProfileForm(prev => ({
-      ...prev,
-      currentPassword: '',
-      newPassword: ''
-    }));
-  }
-};
+  };
 
   const filteredCourses = activeTab === 'all'
     ? allCourses.filter((course) =>
@@ -243,18 +270,17 @@ const confirmProfileUpdate = async () => {
 
   return (
     <div className="dashboard-container">
-       {/* Ajoutez le ToastContainer près de la racine */}
-    <ToastContainer
-      position="top-right"
-      autoClose={5000}
-      hideProgressBar={false}
-      newestOnTop={false}
-      closeOnClick
-      rtl={false}
-      pauseOnFocusLoss
-      draggable
-      pauseOnHover
-    />
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <div className="sidebar">
         <div className="sidebar-header">
           <h2>EduPlatform</h2>
@@ -273,6 +299,7 @@ const confirmProfileUpdate = async () => {
           >
             <FiBook className="sidebar-icon" />
             <span>Mes cours suivis</span>
+           
           </button>
         </nav>
       </div>
@@ -292,14 +319,20 @@ const confirmProfileUpdate = async () => {
           </div>
           <div className="user-info">
             {user && (
-              <span className="user-name">
-                {user.prenom} {user.nom}
-              </span>
+              <div className="user-stats">
+                <span className="user-name">
+                  {user.prenom} {user.nom}
+                </span>
+             
+              </div>
             )}
             <Menu
               menuButton={
                 <MenuButton className="profile-button">
-                  <FiUser size={20} />
+                  <div className="user-stats-badge">
+                    <FiUser size={20} />
+                   
+                  </div>
                 </MenuButton>
               }
               align="end"
@@ -314,7 +347,7 @@ const confirmProfileUpdate = async () => {
               <MenuItem onClick={fetchProgressData}>
                 <div className="menu-item">
                   <FiBarChart2 style={{ marginRight: '8px' }} />
-                  Parcours
+                  Détails de progression
                 </div>
               </MenuItem>
               <MenuItem onClick={handleLogout}>
@@ -323,14 +356,15 @@ const confirmProfileUpdate = async () => {
             </Menu>
           </div>
         </header>
- {/* Ajoutez la modal de confirmation */}
-    {showConfirmationModal && (
-      <ConfirmationModal
-        message="Êtes-vous sûr de vouloir modifier votre profil ?"
-        onConfirm={confirmProfileUpdate}
-        onCancel={() => setShowConfirmationModal(false)}
-      /> )}
-        {/* Modal de profil */}
+
+        {showConfirmationModal && (
+          <ConfirmationModal
+            message="Êtes-vous sûr de vouloir modifier votre profil ?"
+            onConfirm={confirmProfileUpdate}
+            onCancel={() => setShowConfirmationModal(false)}
+          /> 
+        )}
+
         <Modal
           isOpen={showProfileModal}
           onRequestClose={() => {
@@ -353,7 +387,6 @@ const confirmProfileUpdate = async () => {
                 &times;
               </button>
             </div>
-            
             
             {editMode ? (
               <form onSubmit={handleProfileUpdate} className="profile-form">
@@ -400,6 +433,23 @@ const confirmProfileUpdate = async () => {
                   <FiMail className="info-icon" />
                   <span>{user?.email}</span>
                 </div>
+                <div className="progress-summary">
+                  <h4>Progression globale</h4>
+                  <div className="progress-item">
+                    <span>Cours suivis:</span>
+                    <span>{progressStats.totalCourses}</span>
+                  </div>
+                  <div className="progress-item">
+                    <span>Cours terminés:</span>
+                    <span>{progressStats.completedCourses}</span>
+                  </div>
+                  {progressStats.averageScore && (
+                    <div className="progress-item">
+                      <span>Moyenne des quiz:</span>
+                      <span>{progressStats.averageScore}%</span>
+                    </div>
+                  )}
+                </div>
                 <button 
                   onClick={() => setEditMode(true)} 
                   className="edit-btn"
@@ -412,7 +462,6 @@ const confirmProfileUpdate = async () => {
           </div>
         </Modal>
 
-        {/* Modal de progression */}
         <Modal
           isOpen={showProgressModal}
           onRequestClose={() => setShowProgressModal(false)}
@@ -432,55 +481,74 @@ const confirmProfileUpdate = async () => {
             
             <div className="progress-list">
               {progressData.length > 0 ? (
-                progressData.map((course) => (
-                  <div key={course.courseId} className="course-progress">
-                    <div className="course-header">
-                      <h4>{course.courseTitle}</h4>
-                      <div className="overall-progress">
-                        <span>Progression globale: </span>
-                        <div className="progress-bar-container">
-                          <div 
-                            className="progress-bar" 
-                            style={{ width: `${course.overallProgress}%` }}
-                          >
-                            {course.overallProgress}%
+                <>
+                  <div className="global-stats">
+                    <div className="stat-card">
+                      <h4>Cours suivis</h4>
+                      <p>{progressStats.totalCourses}</p>
+                    </div>
+                    <div className="stat-card">
+                      <h4>Cours terminés</h4>
+                      <p>{progressStats.completedCourses}</p>
+                    </div>
+                    {progressStats.averageScore && (
+                      <div className="stat-card">
+                        <h4>Moyenne des quiz</h4>
+                        <p>{progressStats.averageScore}%</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {progressData.map((course) => (
+                    <div key={course.courseId} className="course-progress">
+                      <div className="course-header">
+                        <h4>{course.courseTitle}</h4>
+                        <div className="overall-progress">
+                          <span>Progression globale: </span>
+                          <div className="progress-bar-container">
+                            <div 
+                              className="progress-bar" 
+                              style={{ width: `${course.overallProgress}%` }}
+                            >
+                              {course.overallProgress}%
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="chapters-progress">
-                      {course.chapterProgress
-                        .filter(chapter => chapter.quizCompleted || chapter.completedSections > 0)
-                        .map(chapter => (
-                          <div key={chapter.chapterId} className="chapter-progress">
-                            <div className="chapter-header">
-                              <h5>{chapter.chapterTitle}</h5>
+                      
+                      <div className="chapters-progress">
+                        {course.chapterProgress
+                          .filter(chapter => chapter.quizCompleted || chapter.completedSections > 0)
+                          .map(chapter => (
+                            <div key={chapter.chapterId} className="chapter-progress">
+                              <div className="chapter-header">
+                                <h5>{chapter.chapterTitle}</h5>
+                                {chapter.quizCompleted && (
+                                  <div className="quiz-badge">
+                                    <FiAward className="badge-icon" />
+                                    <span>Quiz complété</span>
+                                  </div>
+                                )}
+                              </div>
+                              {chapter.completedSections > 0 && (
+                                <div className="section-progress">
+                                  <FiCheckCircle className="progress-icon" />
+                                  <span>Sections complétées: {chapter.completedSections}</span>
+                                </div>
+                              )}
                               {chapter.quizCompleted && (
-                                <div className="quiz-badge">
-                                  <FiAward className="badge-icon" />
-                                  <span>Quiz complété</span>
+                                <div className="quiz-progress">
+                                  <span>Score du quiz: </span>
+                                  <span className="quiz-score">{chapter.quizScore}%</span>
                                 </div>
                               )}
                             </div>
-                            {chapter.completedSections > 0 && (
-                              <div className="section-progress">
-                                <FiCheckCircle className="progress-icon" />
-                                <span>Sections complétées: {chapter.completedSections}</span>
-                              </div>
-                            )}
-                            {chapter.quizCompleted && (
-                              <div className="quiz-progress">
-                                <span>Score du quiz: </span>
-                                <span className="quiz-score">{chapter.quizScore}%</span>
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      }
+                          ))
+                        }
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </>
               ) : (
                 <div className="no-progress">
                   <p>Aucune progression enregistrée</p>

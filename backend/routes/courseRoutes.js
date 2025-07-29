@@ -21,10 +21,12 @@ import {
   createCourse,
   createChapter,
   checkSubscription,
+  getCoursesByCreator,
+  
   
 } from '../controllers/courseController.js';
 
-import { authenticate, isEtudiant, isFormateur, protect } from '../midddleware/auth.js';
+import { auth, authenticate, isEtudiant, isFormateur, protect } from '../midddleware/auth.js';
 
 const router = express.Router();
 
@@ -46,11 +48,11 @@ router.post('/:courseId/follow',isEtudiant, followCourse);
 router.get('/:courseId/progress', isEtudiant, getCourseWithProgress);
 // Récupérer les cours suivis par un utilisateur
 // Mettre à jour la progression d'une section
-router.post('/:courseId/sections', authenticate, updateSectionProgress);
+router.post('/:courseId/sections', auth , isEtudiant, updateSectionProgress);
 // Dans votre fichier de routes (ex: courseRoutes.js)
 router.get('/:id/check-subscription', authenticate, isEtudiant, checkSubscription);
 // Marquer un quiz comme complété
-router.post('/:courseId/quizzes', authenticate, completeQuiz);
+router.post('/:courseId/quizzes/',authenticate ,completeQuiz);
 
 
 
@@ -72,6 +74,6 @@ router.delete('/:id/chapters/:chapterId', isFormateur, deleteChapter);
 router.post('/:id/chapters/:chapterId/sections', isFormateur, createSection);
 router.put('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, updateSection);
 router.delete('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, deleteSection);
-
+router.get('/creator', isFormateur, getCoursesByCreator);
 
 export default router;
