@@ -1105,41 +1105,67 @@ export const checkSubscription = async (req, res) => {
 };
 
 
-export const getCoursesByCreator = async (req, res) => {
+
+export const getInstructorCourses = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const userRole = req.user.role;
+    const userId = req.user.id; // ID du formateur connecté
 
-    // 1. Vérifier que l'utilisateur est un formateur
-    if (userRole !== 'formateur') {
-      return res.status(403).json({
-        success: false,
-        message: 'Accès refusé. Réservé aux formateurs.'
-      });
-    }
-
-    // 2. Récupérer TOUS les cours (sans pagination)
+    // Récupération des cours avec les relations populées
     const courses = await Course.find({ createdBy: userId })
-      .sort({ createdAt: -1 }) // Tri du plus récent au plus ancien
+      .populate('createdBy', 'prenom nom')
       .populate({
-        path: 'createdBy',
-        select: 'nom prenom email' // Infos basiques du formateur
+        path: 'chapters',
+        populate: [
+          { 
+            path: 'sections',
+            options: { sort: { order: 1 } }
+          },
+          {
+            path: 'quiz',
+            populate: {
+              path: 'questions'
+            }
+          }
+        ],
+        options: { sort: { order: 1 } }
       })
-      .select('-chapters -followers'); // Exclure les données lourdes
+      .sort({ createdAt: -1 }); // Tri par date de création décroissante
 
-    // 3. Renvoyer la réponse
-    res.status(200).json({
+    // Calcul des statistiques pour chaque cours
+    const coursesWithStats = await Promise.all(
+      courses.map(async (course) => {
+        const followerCount = await User.countDocuments({ followedCourses: course.id });
+        const completedCount = await User.countDocuments({ completedCourses: course.id });
+        
+        // Calcul de la note moyenne si vous avez un système de notation
+        const ratings = await Rating.find({ courseId: course.id });
+        const averageRating = ratings.length > 0 
+          ? ratings.reduce((sum, rating) => sum + rating.value, 0) / ratings.length 
+          : null;
+
+        return {
+          ...course.toObject(),
+          stats: {
+            followerCount,
+            completedCount,
+            averageRating
+          }
+        };
+      })
+    );
+
+    res.json({
       success: true,
       count: courses.length,
-      data: courses
+      data: coursesWithStats
     });
 
-  } catch (error) {
-    console.error('Erreur:', error);
+  } catch (err) {
+    console.error('Erreur dans getInstructorCourses:', err);
     res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
