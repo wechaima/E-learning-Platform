@@ -358,43 +358,22 @@ export const getCourseWithProgress = async (req, res) => {
 // Récupérer tous les cours (version simplifiée)
 export const getAllCourses = async (req, res) => {
   try {
-    // Option de pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    // Option de tri
-    const sortBy = req.query.sortBy || 'createdAt';
-    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
-
-    // Option de filtre
-    const filter = {};
-    if (req.query.search) {
-      filter.title = { $regex: req.query.search, $options: 'i' };
-    }
-    if (req.query.instructor) {
-      filter.createdBy = req.query.instructor;
-    }
-
-    const [courses, total] = await Promise.all([
-      Course.find(filter)
-        .sort({ [sortBy]: sortOrder })
-        .skip(skip)
-        .limit(limit)
-        .populate({
-          path: 'createdBy',
-          select: 'nom prenom email' // Modifié ici
-        })
-        .select('-chapters -followers'),
-      Course.countDocuments(filter)
-    ]);
+    const courses = await Course.find()
+      .populate({
+        path: 'createdBy',
+        select: 'nom prenom email'
+      })
+      .populate({
+        path: 'chapters',
+        select: 'title order',
+        populate: {
+          path: 'sections',
+          select: 'title order'
+        }
+      });
 
     res.status(200).json({
       success: true,
-      count: courses.length,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
       data: courses
     });
   } catch (error) {
@@ -405,7 +384,6 @@ export const getAllCourses = async (req, res) => {
     });
   }
 };
-
 
 // Mettre à jour un cours
 export const updateCourse = async (req, res) => {
@@ -1106,66 +1084,36 @@ export const checkSubscription = async (req, res) => {
 
 
 
-export const getInstructorCourses = async (req, res) => {
+// controllers/courseController.js
+export const getCoursesByCreator = async (req, res) => {
   try {
-    const userId = req.user.id; // ID du formateur connecté
-
-    // Récupération des cours avec les relations populées
+    const userId = req.params.userId;
+    
     const courses = await Course.find({ createdBy: userId })
       .populate('createdBy', 'prenom nom')
       .populate({
         path: 'chapters',
         populate: [
+          { path: 'sections' },
           { 
-            path: 'sections',
-            options: { sort: { order: 1 } }
-          },
-          {
             path: 'quiz',
             populate: {
               path: 'questions'
             }
           }
-        ],
-        options: { sort: { order: 1 } }
-      })
-      .sort({ createdAt: -1 }); // Tri par date de création décroissante
+        ]
+      });
 
-    // Calcul des statistiques pour chaque cours
-    const coursesWithStats = await Promise.all(
-      courses.map(async (course) => {
-        const followerCount = await User.countDocuments({ followedCourses: course.id });
-        const completedCount = await User.countDocuments({ completedCourses: course.id });
-        
-        // Calcul de la note moyenne si vous avez un système de notation
-        const ratings = await Rating.find({ courseId: course.id });
-        const averageRating = ratings.length > 0 
-          ? ratings.reduce((sum, rating) => sum + rating.value, 0) / ratings.length 
-          : null;
-
-        return {
-          ...course.toObject(),
-          stats: {
-            followerCount,
-            completedCount,
-            averageRating
-          }
-        };
-      })
-    );
-
-    res.json({
+    res.status(200).json({
       success: true,
-      count: courses.length,
-      data: coursesWithStats
+      data: courses
     });
-
-  } catch (err) {
-    console.error('Erreur dans getInstructorCourses:', err);
+  } catch (error) {
+    console.error('Erreur récupération cours:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      message: 'Erreur lors de la récupération des cours',
+      error: error.message
     });
   }
 };

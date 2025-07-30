@@ -66,7 +66,7 @@ function FormateurDashboard() {
         setError('');
         const [allRes, myRes] = await Promise.all([
           api.get('/courses?populate=createdBy'),
-          user ? api.get(`/users/${user.id}/created-courses`) : Promise.resolve({ data: [] }),
+          user ? api.get(`/courses/created-by/${user.id}`) : Promise.resolve({ data: [] }),
         ]);
         setAllCourses(allRes.data.data || allRes.data || []);
         setMyCourses(myRes.data.data || myRes.data || []);
@@ -77,7 +77,10 @@ function FormateurDashboard() {
         setLoading(false);
       }
     };
-    fetchCourses();
+    
+    if (user) {
+      fetchCourses();
+    }
   }, [user]);
 
   const handleLogout = () => {
@@ -123,9 +126,7 @@ function FormateurDashboard() {
         setProfileForm({
           nom: updatedUser.nom,
           prenom: updatedUser.prenom,
-          email: updatedUser.email,
-          currentPassword: '',
-          newPassword: ''
+          email: updatedUser.email
         });
 
         toast.success('Profil mis à jour avec succès!', {
@@ -164,34 +165,38 @@ function FormateurDashboard() {
         draggable: true,
         progress: undefined,
       });
-      
-      setProfileForm(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: ''
-      }));
     }
   };
 
   const handleCreateCourse = async (courseData) => {
-    try {
-      const response = await api.post('/courses', courseData, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-
-      if (response.data.success) {
-        toast.success('Cours créé avec succès!');
-        setMyCourses([...myCourses, response.data.data]);
-        setShowAddCourseModal(false);
+  try {
+    // Ajoutez l'ID du créateur
+    courseData.createdBy = user.id;
+    
+    const response = await api.post('/courses', courseData, {
+      headers: {
+        'Authorization': `Bearer ${user.token}`
       }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur lors de la création du cours');
-      console.error('Erreur création cours:', err);
-    }
-  };
+    });
 
+    if (response.data.success) {
+      toast.success('Cours créé avec succès!');
+      
+      // Récupérez le cours créé avec les données peuplées
+      const courseResponse = await api.get(`/courses/${response.data.data._id}?populate=createdBy`);
+      const newCourse = courseResponse.data.data;
+      
+      // Mise à jour des états
+      setAllCourses(prev => [newCourse, ...prev]);
+      setMyCourses(prev => [newCourse, ...prev]);
+      
+      setShowAddCourseModal(false);
+    }
+  } catch (err) {
+    toast.error(err.response?.data?.message || 'Erreur lors de la création du cours');
+    console.error('Erreur création cours:', err);
+  }
+};
   const filteredCourses = activeTab === 'all'
     ? allCourses.filter((course) =>
         course.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -416,7 +421,11 @@ function FormateurDashboard() {
         </Modal>
 
         <div className="course-grid">
-          {filteredCourses.length > 0 ? (
+          {loading ? (
+            <div className="loading">Chargement en cours...</div>
+          ) : error ? (
+            <div className="error-message">{error}</div>
+          ) : filteredCourses.length > 0 ? (
             filteredCourses.map((course) => (
               <div
                 key={course._id}

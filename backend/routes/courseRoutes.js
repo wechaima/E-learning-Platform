@@ -21,7 +21,8 @@ import {
   createCourse,
   createChapter,
   checkSubscription,
-  getInstructorCourses,
+
+  getCoursesByCreator,
  
   
   
@@ -75,6 +76,6 @@ router.delete('/:id/chapters/:chapterId', isFormateur, deleteChapter);
 router.post('/:id/chapters/:chapterId/sections', isFormateur, createSection);
 router.put('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, updateSection);
 router.delete('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, deleteSection);
-router.get('/creator', isFormateur, getInstructorCourses );
+router.get('/created-by/:userId', isFormateur, getCoursesByCreator);
 
 export default router;
