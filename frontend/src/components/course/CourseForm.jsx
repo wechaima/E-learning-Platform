@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiX, FiPlus, FiTrash2, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
-function CourseForm({ onSubmit, onCancel }) {
+function CourseForm({ onSubmit, onCancel, initialData }) {
   const [courseData, setCourseData] = useState({
     title: '',
     description: '',
@@ -11,6 +11,39 @@ function CourseForm({ onSubmit, onCancel }) {
   });
 
   const [expandedChapter, setExpandedChapter] = useState(null);
+
+  // Initialize form with initialData when editing
+  useEffect(() => {
+    if (initialData) {
+      const formattedData = {
+        title: initialData.title || '',
+        description: initialData.description || '',
+        imageUrl: initialData.imageUrl || '',
+        category: initialData.category || '',
+        chapters: initialData.chapters?.map((chapter, index) => ({
+          _id: chapter._id || undefined,
+          title: chapter.title || '',
+          order: chapter.order || index + 1,
+          sections: chapter.sections?.map((section, secIndex) => ({
+            title: section.title || '',
+            content: section.content || '',
+            videoUrl: section.videoUrl || '',
+            order: section.order || secIndex + 1
+          })) || [],
+          quiz: {
+            passingScore: chapter.quiz?.passingScore || 70,
+            questions: chapter.quiz?.questions?.map((q, qIndex) => ({
+              text: q.text || '',
+              options: q.options?.map(opt => opt.text) || ['', '', '', ''],
+              correctOption: q.options?.findIndex(opt => opt.isCorrect) || 0,
+              explanation: q.explanation || ''
+            })) || []
+          }
+        })) || []
+      };
+      setCourseData(formattedData);
+    }
+  }, [initialData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -121,30 +154,36 @@ function CourseForm({ onSubmit, onCancel }) {
   };
 
   const handleSubmit = (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // 🛠️ Transformer quiz.options + correctOption → format backend
-  const formattedData = {
-    ...courseData,
-    chapters: courseData.chapters.map((chapter) => ({
-      ...chapter,
-      quiz: {
-        ...chapter.quiz,
-        questions: chapter.quiz.questions.map((q) => ({
-          text: q.text,
-          explanation: q.explanation,
-          options: q.options.map((opt, idx) => ({
-            text: opt,
-            isCorrect: idx === q.correctOption
+    const formattedData = {
+      ...courseData,
+      chapters: courseData.chapters.map((chapter, index) => ({
+        _id: chapter._id || undefined,
+        title: chapter.title,
+        order: chapter.order || index + 1,
+        sections: chapter.sections.map((section, secIndex) => ({
+          title: section.title,
+          content: section.content,
+          videoUrl: section.videoUrl,
+          order: section.order || secIndex + 1
+        })),
+        quiz: {
+          passingScore: chapter.quiz.passingScore,
+          questions: chapter.quiz.questions.map((q) => ({
+            text: q.text,
+            explanation: q.explanation,
+            options: q.options.map((opt, idx) => ({
+              text: opt,
+              isCorrect: idx === q.correctOption
+            }))
           }))
-        }))
-      }
-    }))
+        }
+      }))
+    };
+
+    onSubmit(formattedData);
   };
-
-  onSubmit(formattedData);
-};
-
 
   return (
     <form onSubmit={handleSubmit} className="course-form">

@@ -1,119 +1,104 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from '../../api/axios';
-import ChapterManager from '../../components/formateurs/ChapterManager';
-import AddChapterModal from '../../components/formateurs/AddChapterModal';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import React, { useState } from 'react';
+import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import CourseForm from './CourseForm';
+import ConfirmationModal from './ConfirmationModal';
 
-const CourseDetail = () => {
-  const { courseId } = useParams();
-  const navigate = useNavigate();
-  const [course, setCourse] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showAddChapterModal, setShowAddChapterModal] = useState(false);
+const CourseDetail = ({ course, isCreator, onUpdate, onDelete }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  useEffect(() => {
-    const fetchCourse = async () => {
-      try {
-        const response = await axios.get(`/courses/${courseId}`);
-        setCourse(response.data.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCourse();
-  }, [courseId]);
-
-  const handleAddChapter = async (chapterData) => {
-    try {
-      const response = await axios.post(`/courses/${courseId}/chapters`, chapterData);
-      setCourse({
-        ...course,
-        chapters: [...course.chapters, response.data.data]
-      });
-      setShowAddChapterModal(false);
-    } catch (err) {
-      console.error(err);
-    }
+  const handleUpdate = (updatedData) => {
+    onUpdate(updatedData);
+    setIsEditing(false);
   };
 
-  const handleUpdateChapter = async (chapterId, updatedData) => {
-    try {
-      await axios.put(`/courses/${courseId}/chapters/${chapterId}`, updatedData);
-      setCourse({
-        ...course,
-        chapters: course.chapters.map(chap => 
-          chap._id === chapterId ? { ...chap, ...updatedData } : chap
-        )
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeleteChapter = async (chapterId) => {
-    try {
-      await axios.delete(`/courses/${courseId}/chapters/${chapterId}`);
-      setCourse({
-        ...course,
-        chapters: course.chapters.filter(chap => chap._id !== chapterId)
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  if (loading) return <LoadingSpinner />;
-  if (!course) return <div>Cours non trouvé</div>;
+  if (!course) {
+    return <div>Chargement du cours...</div>;
+  }
 
   return (
     <div className="course-detail">
-      <div className="course-header">
-        <h1>{course.title}</h1>
-        <p>{course.description}</p>
-        <button onClick={() => setShowAddChapterModal(true)}>
-          + Ajouter un chapitre
-        </button>
-      </div>
-
-      <div className="chapters-list">
-        {course.chapters?.map(chapter => (
-          <ChapterManager
-            key={chapter._id}
-            chapter={chapter}
-            onAddSection={async (chapterId, sectionData) => {
-              const response = await axios.post(
-                `/courses/${courseId}/chapters/${chapterId}/sections`, 
-                sectionData
-              );
-              // Mettre à jour l'état local...
-            }}
-            onEditChapter={handleUpdateChapter}
-            onDeleteChapter={handleDeleteChapter}
-            onEditSection={async (chapterId, sectionId, updatedData) => {
-              await axios.put(
-                `/courses/${courseId}/chapters/${chapterId}/sections/${sectionId}`,
-                updatedData
-              );
-              // Mettre à jour l'état local...
-            }}
-            onDeleteSection={async (chapterId, sectionId) => {
-              await axios.delete(
-                `/courses/${courseId}/chapters/${chapterId}/sections/${sectionId}`
-              );
-              // Mettre à jour l'état local...
-            }}
+      {isEditing ? (
+        <>
+          <h2>Modifier le cours</h2>
+          <CourseForm 
+            initialData={course} 
+            onSubmit={handleUpdate}
+            onCancel={() => setIsEditing(false)}
           />
-        ))}
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="course-header">
+            <h1>{course.title}</h1>
+            {isCreator && (
+              <div className="course-actions">
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="edit-btn"
+                >
+                  <FiEdit /> Modifier
+                </button>
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="delete-btn"
+                >
+                  <FiTrash2 /> Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="course-content">
+            <p className="description">{course.description}</p>
+            
+            {course.imageUrl && (
+              <img 
+                src={course.imageUrl} 
+                alt={course.title} 
+                className="course-image"
+              />
+            )}
+            
+            <div className="chapters">
+              <h3>Chapitres</h3>
+              {course.chapters?.length > 0 ? (
+                <ul>
+                  {course.chapters.map((chapter, index) => (
+                    <li key={chapter._id || index}>
+                      <h4>{chapter.title}</h4>
+                      {chapter.sections?.length > 0 && (
+                        <ul>
+                          {chapter.sections.map((section, secIndex) => (
+                            <li key={section._id || secIndex}>{section.title}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {chapter.quiz && (
+                        <div className="quiz-info">
+                          <p>Quiz: {chapter.quiz.questions?.length || 0} questions</p>
+                          <p>Score minimum: {chapter.quiz.passingScore}%</p>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Aucun chapitre disponible</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-      <AddChapterModal
-        isOpen={showAddChapterModal}
-        onClose={() => setShowAddChapterModal(false)}
-        onSubmit={handleAddChapter}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        message="Êtes-vous sûr de vouloir supprimer ce cours ?"
+        onConfirm={() => {
+          onDelete();
+          setShowDeleteConfirm(false);
+        }}
+        onCancel={() => setShowDeleteConfirm(false)}
       />
     </div>
   );

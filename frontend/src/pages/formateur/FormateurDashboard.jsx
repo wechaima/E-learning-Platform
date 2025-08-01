@@ -8,11 +8,9 @@ import {
   FiHome, 
   FiBook, 
   FiPlus,
-  FiBarChart2,
   FiEdit,
+  FiTrash2,
   FiMail,
-  FiAward,
-  FiCheckCircle
 } from 'react-icons/fi';
 import { Menu, MenuItem, MenuButton } from '@szhsin/react-menu';
 import '@szhsin/react-menu/dist/index.css';
@@ -44,6 +42,11 @@ function FormateurDashboard() {
     prenom: '',
     email: ''
   });
+  const [showCourseDetailModal, setShowCourseDetailModal] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [showEditCourseModal, setShowEditCourseModal] = useState(false);
+  const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -129,74 +132,97 @@ function FormateurDashboard() {
           email: updatedUser.email
         });
 
-        toast.success('Profil mis à jour avec succès!', {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-        });
-        
-        setError(null);
+        toast.success('Profil mis à jour avec succès!');
       }
     } catch (err) {
-      console.error('Erreur détaillée:', err);
-      
-      let errorMessage = "Échec de la mise à jour. Veuillez réessayer.";
-      
-      if (err.response) {
-        if (err.response.status === 401) {
-          errorMessage = "Mot de passe actuel incorrect";
-        } else if (err.response.status === 400) {
-          errorMessage = err.response.data.message || "Données invalides";
-        } else if (err.response.data && err.response.data.message) {
-          errorMessage = err.response.data.message;
-        }
-      }
-
-      toast.error(errorMessage, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-      });
+      toast.error(err.response?.data?.message || 'Erreur lors de la mise à jour du profil');
     }
   };
 
   const handleCreateCourse = async (courseData) => {
-  try {
-    // Ajoutez l'ID du créateur
-    courseData.createdBy = user.id;
-    
-    const response = await api.post('/courses', courseData, {
-      headers: {
-        'Authorization': `Bearer ${user.token}`
-      }
-    });
+    try {
+      courseData.createdBy = user.id;
+      const response = await api.post('/courses', courseData, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
 
-    if (response.data.success) {
-      toast.success('Cours créé avec succès!');
-      
-      // Récupérez le cours créé avec les données peuplées
-      const courseResponse = await api.get(`/courses/${response.data.data._id}?populate=createdBy`);
-      const newCourse = courseResponse.data.data;
-      
-      // Mise à jour des états
-      setAllCourses(prev => [newCourse, ...prev]);
-      setMyCourses(prev => [newCourse, ...prev]);
-      
-      setShowAddCourseModal(false);
+      if (response.data.success) {
+        toast.success('Cours créé avec succès!');
+        const courseResponse = await api.get(`/courses/${response.data.data._id}?populate=createdBy`);
+        const newCourse = courseResponse.data.data;
+        
+        setAllCourses(prev => [newCourse, ...prev]);
+        setMyCourses(prev => [newCourse, ...prev]);
+        setShowAddCourseModal(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de la création du cours');
     }
-  } catch (err) {
-    toast.error(err.response?.data?.message || 'Erreur lors de la création du cours');
-    console.error('Erreur création cours:', err);
-  }
-};
+  };
+
+  const handleEditCourse = async (courseData) => {
+    try {
+      const response = await api.put(`/courses/${selectedCourse._id}`, courseData, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      if (response.data.success) {
+        toast.success('Cours mis à jour avec succès!');
+        const courseResponse = await api.get(`/courses/${selectedCourse._id}?populate=createdBy,chapters.sections,chapters.quiz.questions`);
+        const updatedCourse = courseResponse.data.data;
+
+        setAllCourses(prev =>
+          prev.map(course => course._id === updatedCourse._id ? updatedCourse : course)
+        );
+        setMyCourses(prev =>
+          prev.map(course => course._id === updatedCourse._id ? updatedCourse : course)
+        );
+        setShowEditCourseModal(false);
+        setShowCourseDetailModal(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de la modification du cours');
+    }
+  };
+
+  const handleDeleteCourse = async () => {
+    try {
+      const response = await api.delete(`/courses/${courseToDelete._id}`, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      if (response.data.success) {
+        toast.success('Cours supprimé avec succès!');
+        setAllCourses(prev => prev.filter(course => course._id !== courseToDelete._id));
+        setMyCourses(prev => prev.filter(course => course._id !== courseToDelete._id));
+        setShowDeleteConfirmationModal(false);
+        setShowCourseDetailModal(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de la suppression du cours');
+    }
+  };
+
+  const handleViewCourseDetails = async (courseId) => {
+    try {
+      const response = await api.get(`/courses/${courseId}?populate=createdBy,chapters.sections,chapters.quiz.questions`, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+      setSelectedCourse(response.data.data);
+      setShowCourseDetailModal(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors du chargement des détails du cours');
+    }
+  };
+
   const filteredCourses = activeTab === 'all'
     ? allCourses.filter((course) =>
         course.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -207,17 +233,7 @@ function FormateurDashboard() {
 
   return (
     <div className="dashboard-container">
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
+      <ToastContainer />
       <div className="sidebar">
         <div className="sidebar-header">
           <h2>EduPlatform</h2>
@@ -420,6 +436,113 @@ function FormateurDashboard() {
           </div>
         </Modal>
 
+        <Modal
+          isOpen={showCourseDetailModal}
+          onRequestClose={() => setShowCourseDetailModal(false)}
+          className="course-modal"
+          overlayClassName="course-overlay"
+        >
+          <div className="course-modal-content">
+            <div className="course-modal-header">
+              <h3>{selectedCourse?.title}</h3>
+              <button 
+                onClick={() => setShowCourseDetailModal(false)}
+                className="close-button"
+              >
+                &times;
+              </button>
+            </div>
+            {selectedCourse && (
+              <div className="course-details">
+                <p><strong>Description:</strong> {selectedCourse.description}</p>
+                <h4>Chapitres</h4>
+                {selectedCourse.chapters?.length > 0 ? (
+                  <ul>
+                    {selectedCourse.chapters.map((chapter, index) => (
+                      <li key={chapter._id || index}>
+                        <strong>Chapitre {index + 1}: {chapter.title}</strong>
+                        {chapter.sections?.length > 0 && (
+                          <ul>
+                            {chapter.sections.map((section, secIndex) => (
+                              <li key={section._id || secIndex}>
+                                Section {secIndex + 1}: {section.title}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Aucun chapitre disponible.</p>
+                )}
+                {selectedCourse.createdBy?._id === user?.id && (
+                  <div className="course-actions">
+                    <button
+                      className="edit-btn"
+                      onClick={() => {
+                        setShowEditCourseModal(true);
+                        setShowCourseDetailModal(false);
+                      }}
+                    >
+                      <FiEdit style={{ marginRight: '5px' }} />
+                      Modifier
+                    </button>
+                    <button
+                      className="delete-btn"
+                      onClick={() => {
+                        setCourseToDelete(selectedCourse);
+                        setShowDeleteConfirmationModal(true);
+                        setShowCourseDetailModal(false);
+                      }}
+                    >
+                      <FiTrash2 style={{ marginRight: '5px' }} />
+                      Supprimer
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Modal>
+
+        <Modal
+          isOpen={showEditCourseModal}
+          onRequestClose={() => setShowEditCourseModal(false)}
+          className="course-modal"
+          overlayClassName="course-overlay"
+        >
+          <div className="course-modal-content">
+            <div className="course-modal-header">
+              <h3>Modifier le cours</h3>
+              <button 
+                onClick={() => setShowEditCourseModal(false)}
+                className="close-button"
+              >
+                &times;
+              </button>
+            </div>
+            <CourseForm 
+              onSubmit={handleEditCourse} 
+              onCancel={() => setShowEditCourseModal(false)}
+              initialData={selectedCourse}
+            />
+          </div>
+        </Modal>
+
+        <Modal
+          isOpen={showDeleteConfirmationModal}
+          onRequestClose={() => setShowDeleteConfirmationModal(false)}
+          className="confirmation-modal"
+          overlayClassName="confirmation-overlay"
+        >
+          <ConfirmationModal
+            message="Êtes-vous sûr de vouloir supprimer ce cours ? Cette action est irréversible."
+            onConfirm={handleDeleteCourse}
+            onCancel={() => setShowDeleteConfirmationModal(false)}
+          />
+        </Modal>
+
         <div className="course-grid">
           {loading ? (
             <div className="loading">Chargement en cours...</div>
@@ -430,7 +553,7 @@ function FormateurDashboard() {
               <div
                 key={course._id}
                 className="course-card"
-                onClick={() => navigate(`/formateur/cours/${course._id}`)}
+                onClick={() => handleViewCourseDetails(course._id)}
               >
                 <div className="course-image-container">
                   <img

@@ -6,12 +6,11 @@ import './CourseGrid.css';
 
 const CourseGrid = () => {
   const [courses, setCourses] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(4);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
-  const isAuthenticated = !!localStorage.getItem('token'); // Simple auth check; adjust based on your auth setup
+  const isAuthenticated = !!localStorage.getItem('token');
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -19,108 +18,86 @@ const CourseGrid = () => {
         const response = await api.get('/courses', {
           params: {
             populate: 'createdBy',
-            page,
-            limit: 9, // 3 courses per row x 3 rows per page
           },
         });
-        
-        console.log('Données reçues:', response.data);
-        
-        const newCourses = response.data.data || response.data || [];
-        setCourses((prev) => (page === 1 ? newCourses : [...prev, ...newCourses]));
-        setHasMore(newCourses.length === 9); // Assume more if full page is returned
+
+        const data = response.data.data || response.data || [];
+        setCourses(data);
       } catch (err) {
         setError('Erreur lors du chargement des cours');
-        console.error('Erreur:', err.response?.data || err.message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchCourses();
-  }, [page]);
+  }, []);
 
   const handleCourseClick = (courseId) => {
-    if (isAuthenticated) {
-      navigate(`/courses/${courseId}`);
-    } else {
-      navigate('/login');
-    }
+    navigate(isAuthenticated ? `/courses/${courseId}` : '/login');
   };
 
   const handleSubscribeClick = (courseId) => {
-    if (isAuthenticated) {
-      // Implement subscribe logic (e.g., API call to followCourse)
-      console.log(`S'abonner au cours ${courseId}`);
-      // Example API call: await api.post(`/courses/${courseId}/follow`);
-    } else {
-      navigate('/login');
-    }
+    if (!isAuthenticated) return navigate('/login');
+    console.log(`S'abonner au cours ${courseId}`);
   };
 
   const loadMoreCourses = () => {
-    if (!loading && hasMore) {
-      setPage((prev) => prev + 1);
-    }
+    setVisibleCount((prev) => prev + 3);
   };
 
-  if (loading && page === 1) return <div className="loading">Chargement...</div>;
+  if (loading) return <div className="loading">Chargement...</div>;
   if (error) return <div className="error">{error}</div>;
 
   return (
     <div className="course-grid-container">
-      
-        <h1 className="course-grid-title"> Nos formations populaires <p>Découvrez nos cours les plus appréciés</p></h1>
-          
-        <div className="course-grid">
-          {courses.map((course) => (
-            <div key={course._id} className="course-card">
-              <div className="course-image-container">
-                <img
-                  src={course.imageUrl || '/default-course.jpg'}
-                  alt={course.title}
-                  className="course-image"
-                />
-                <div className="followers-count">
-                  <FaUsers /> {course.followerCount || 0}
-                </div>
-              </div>
-              
-              <div className="course-details">
-                <h3>{course.title}</h3>
-                <p className="description">
-                  {course.description?.substring(0, 100)}
-                  {course.description?.length > 100 ? '...' : ''}
-                </p>
-                
-                <div className="instructor-info">
-                  <FaUserTie className="instructor-icon" />
-                  <span>
-                    {course.createdBy?.prenom} {course.createdBy?.nom}
-                  </span>
-                </div>
-                
-                <button
-                  onClick={() => handleSubscribeClick(course._id)}
-                  className="subscribe-button"
-                >
-                  S'abonner
-                </button>
-                <button
-                  onClick={() => handleCourseClick(course._id)}
-                  className="view-button"
-                >
-                  Voir le détail
-                </button>
+      <h1 className="course-grid-title">
+        Nos formations populaires <p>Découvrez nos cours les plus appréciés</p>
+      </h1>
+
+      <div className="course-grid">
+        {courses.slice(0, visibleCount).map((course) => (
+          <div key={course._id} className="course-card">
+            <div className="course-image-container">
+              <img
+                src={course.imageUrl || '/default-course.jpg'}
+                alt={course.title}
+                className="course-image"
+              />
+              <div className="followers-count">
+                <FaUsers /> {course.followerCount || 0}
               </div>
             </div>
-          ))}
-        </div>
-     
-      {hasMore && (
+
+            <div className="course-details">
+              <h3>{course.title}</h3>
+              <p className="description">
+                {course.description?.substring(0, 100)}
+                {course.description?.length > 100 ? '...' : ''}
+              </p>
+
+              <div className="instructor-info">
+                <FaUserTie className="instructor-icon" />
+                <span>
+                  {course.createdBy?.prenom} {course.createdBy?.nom}
+                </span>
+              </div>
+
+              <button onClick={() => handleSubscribeClick(course._id)} className="subscribe-button">
+                S'abonner
+              </button>
+              <button onClick={() => handleCourseClick(course._id)} className="view-button">
+                Voir le détail
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {visibleCount < courses.length && (
         <div className="load-more">
-          <button onClick={loadMoreCourses} disabled={loading} className="load-more-button">
-            {loading ? 'Chargement...' : 'Plus de cours'}
+          <button onClick={loadMoreCourses} className="load-more-button">
+            Plus de cours
           </button>
         </div>
       )}

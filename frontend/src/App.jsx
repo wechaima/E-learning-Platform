@@ -34,6 +34,9 @@ function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['formateur']} />}>
               <Route path="/formateur/*" element={<FormateurDashboard />} />
+            <Route path="/formateur/cours/:id" element={<CourseDetail />} 
+/>
+
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['etudiant']} />}>

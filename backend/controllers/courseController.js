@@ -389,8 +389,9 @@ export const getAllCourses = async (req, res) => {
 export const updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, imageUrl, chapters } = req.body;
+    const { title, description, imageUrl, category, chapters } = req.body;
 
+    // Validation de l'ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -398,8 +399,8 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Vérifier que le cours existe et que l'utilisateur est le créateur
-    const course = await Course.findById(id);
+    // Trouver le cours existant
+    let course = await Course.findById(id);
     if (!course) {
       return res.status(404).json({
         success: false,
@@ -407,58 +408,131 @@ export const updateCourse = async (req, res) => {
       });
     }
 
+    // Vérifier les permissions
     if (course.createdBy.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
-        message: 'Non autorisé - Vous n\'êtes pas le créateur de ce cours'
+        message: 'Action non autorisée'
       });
     }
 
     // Mettre à jour les champs de base
-    if (title) course.title = title;
-    if (description) course.description = description;
-    if (imageUrl) course.imageUrl = imageUrl;
+    course.title = title || course.title;
+    course.description = description || course.description;
+    course.imageUrl = imageUrl || course.imageUrl;
+    course.category = category || course.category;
 
-    // Mettre à jour les chapitres si fournis
-    if (chapters) {
-      // Supprimer les anciens chapitres et leurs relations
-      await Chapter.deleteMany({ courseId: id });
-      
-      // Recréer les chapitres
-      const newChapters = [];
+    // Gestion des chapitres
+    if (chapters && Array.isArray(chapters)) {
+      const newChapterIds = [];
+
       for (const chapterData of chapters) {
-        const chapter = await createChapter(chapterData, id);
-        newChapters.push(chapter._id);
+        let chapter;
+
+        // Si le chapitre a un _id, on le met à jour
+        if (chapterData._id && mongoose.Types.ObjectId.isValid(chapterData._id)) {
+          chapter = await Chapter.findById(chapterData._id);
+          if (chapter) {
+            chapter.title = chapterData.title || chapter.title;
+            chapter.order = chapterData.order || chapter.order;
+            await chapter.save();
+          }
+        }
+
+        // Sinon, on crée un nouveau chapitre
+        if (!chapter) {
+          chapter = new Chapter({
+            title: chapterData.title,
+            courseId: id,
+            order: chapterData.order || chapters.length
+          });
+          await chapter.save();
+        }
+
+        // Gestion des sections
+        if (chapterData.sections && Array.isArray(chapterData.sections)) {
+          // Supprimer les anciennes sections
+          await Section.deleteMany({ chapterId: chapter._id });
+
+          const sections = await Section.insertMany(
+            chapterData.sections.map((section, index) => ({
+              title: section.title,
+              content: section.content,
+              videoUrl: section.videoUrl,
+              order: section.order || index + 1,
+              chapterId: chapter._id
+            }))
+          );
+          chapter.sections = sections.map(s => s._id);
+          await chapter.save();
+        }
+
+        // Gestion du quiz
+        if (chapterData.quiz && chapterData.quiz.questions) {
+          // Supprimer l'ancien quiz
+          await Quiz.deleteMany({ chapterId: chapter._id });
+          await Question.deleteMany({ quizId: { $in: await Quiz.find({ chapterId: chapter._id }).select('_id') } });
+
+          const quiz = new Quiz({
+            passingScore: chapterData.quiz.passingScore || 70,
+            chapterId: chapter._id
+          });
+          const savedQuiz = await quiz.save();
+
+          const questions = await Question.insertMany(
+            chapterData.quiz.questions.map(question => ({
+              text: question.text,
+              options: question.options,
+              explanation: question.explanation,
+              quizId: savedQuiz._id
+            }))
+          );
+
+          savedQuiz.questions = questions.map(q => q._id);
+          await savedQuiz.save();
+
+          chapter.quiz = savedQuiz._id;
+          await chapter.save();
+        }
+
+        newChapterIds.push(chapter._id);
       }
-      course.chapters = newChapters;
+
+      // Supprimer les chapitres qui ne sont plus dans la liste
+      await Chapter.deleteMany({ courseId: id, _id: { $nin: newChapterIds } });
+      course.chapters = newChapterIds;
     }
 
+    // Sauvegarder les modifications
     await course.save();
 
-    // Récupérer le cours mis à jour avec toutes les relations
-    const updatedCourse = await Course.findById(id)
+    // Peupler les relations pour la réponse
+    const populatedCourse = await Course.findById(course._id)
       .populate({
         path: 'chapters',
         populate: [
-          { path: 'sections' },
-          { path: 'quiz', populate: 'questions' }
-        ]
-      });
+          { path: 'sections', options: { sort: { order: 1 } } },
+          { path: 'quiz', populate: { path: 'questions' } }
+        ],
+        options: { sort: { order: 1 } }
+      })
+      .populate('createdBy', 'prenom nom');
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Cours mis à jour avec succès',
-      data: updatedCourse
+      data: populatedCourse
     });
+
   } catch (error) {
-    res.status(500).json({
+    console.error('Error updating course:', error);
+    return res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise à jour du cours',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
-
 // Supprimer un cours
 export const deleteCourse = async (req, res) => {
   try {

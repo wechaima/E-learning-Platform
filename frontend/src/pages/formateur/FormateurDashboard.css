@@ -475,4 +475,51 @@
   .actions-bar {
     justify-content: center;
   }
+}.course-details {
+  padding: 20px;
+}
+
+.course-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.edit-btn,
+.delete-btn {
+  flex: 1; /* même largeur */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem; /* taille plus grande */
+  font-size: 1rem;
+  border: none;
+  border-radius: 5px;
+  
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+
+.edit-btn {
+  background-color: #4CAF50;
+  color: white;
+  font-weight: 100;
+}
+
+.delete-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.confirmation-modal {
+  max-width: 400px;
+  margin: 0 auto;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.confirmation-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
 }
