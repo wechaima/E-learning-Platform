@@ -1,0 +1,312 @@
+.detail-course-container {
+  display: flex;
+  min-height: 100vh;
+
+}
+
+.course-sidebar {
+  width: 300px;
+  background: #f8f9fa;
+  border-right: 1px solid #e0e0e0;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.course-title {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.progress-info {
+  background: #e9ecef;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.subscribe-message {
+  background: #fff8e1;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.subscribe-message p {
+  margin-bottom: 0.5rem;
+}
+
+.subscribe-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.subscribe-button:hover {
+  background: #45a049;
+}
+
+.subscribe-button.large {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+.chapters-list {
+  list-style: none;
+  padding: 0;
+  
+}
+
+
+.chapter {
+  margin-bottom: 0.5rem;
+}
+
+.chapter-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chapter-header:hover {
+  background: #f1f1f1;
+}
+
+.chapter-icon {
+  margin-right: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.chapter-title {
+  flex-grow: 1;
+  text-align: left;
+}
+
+.sections-list {
+  list-style: none;
+  padding-left: 1rem;
+  margin-top: 0.5rem;
+}
+
+.section {
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.section:hover {
+  background: #f1f1f1;
+}
+
+.section.active {
+  background: #e3f2fd;
+  font-weight: bold;
+}
+
+.section.quiz {
+  font-style: italic;
+}
+
+.completed-mark {
+  color: #4CAF50;
+  margin-left: 0.5rem;
+}
+
+.quiz-score {
+  margin-left: auto;
+  background: #4CAF50;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
+.course-content {
+  flex-grow: 1;
+  padding: 2rem;
+  background: #fff;
+}
+
+.section-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.video-container {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.text-content {
+  line-height: 1.6;
+}
+
+.quiz-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.quiz-form {
+  margin-top: 1rem;
+}
+
+.quiz-question {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.quiz-question h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.quiz-option {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.quiz-option:hover {
+  background: #f1f1f1;
+}
+
+.quiz-option input {
+  margin-right: 0.5rem;
+}
+
+.quiz-submit-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 1rem;
+}
+
+.quiz-submit-button:hover {
+  background: #45a049;
+}
+
+.quiz-result {
+  background: #e8f5e9;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.quiz-retry-button {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.quiz-retry-button:hover {
+  background: #0b7dda;
+}
+
+.subscribe-prompt {
+  max-width: 600px;
+  margin: 2rem auto;
+  text-align: center;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.subscribe-prompt h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.no-content {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+}
+
+.error-message {
+  text-align: center;
+  padding: 2rem;
+  color: #d32f2f;
+}
+
+.retry-button {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.retry-button:hover {
+  background: #0b7dda;
+}/* Style pour le bouton de retour */
+.back-button {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: #333;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+
+.back-button:hover {
+  color: #2196F3;
+}
+
+.back-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}

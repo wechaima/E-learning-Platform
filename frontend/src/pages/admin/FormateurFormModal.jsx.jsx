@@ -8,7 +8,7 @@ const FormateurFormModal = ({ formateur, onClose, onSubmit }) => {
     prenom: '',
     email: '',
     specialite: '',
-    password: 'DefaultPassword123'
+    password: ''
   });
 
   useEffect(() => {

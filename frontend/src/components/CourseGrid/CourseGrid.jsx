@@ -1,112 +1,107 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { FaStar, FaRegStar, FaUsers, FaClock } from 'react-icons/fa';
+import { FaUserTie, FaUsers } from 'react-icons/fa';
 import './CourseGrid.css';
 
 const CourseGrid = () => {
   const [courses, setCourses] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(4);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const fetchCourses = async () => {
-    try {
-      const res = await api.get('/courses');
-      const coursesData = Array.isArray(res.data?.data || res.data) 
-        ? (res.data?.data || res.data) 
-        : [];
-      setCourses(coursesData);
-    } catch (err) {
-      setError("Failed to fetch courses. Please try again later.");
-      console.error("Failed to fetch courses:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const navigate = useNavigate();
+  const isAuthenticated = !!localStorage.getItem('token');
 
   useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await api.get('/courses', {
+          params: {
+            populate: 'createdBy',
+          },
+        });
+
+        const data = response.data.data || response.data || [];
+        setCourses(data);
+      } catch (err) {
+        setError('Erreur lors du chargement des cours');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCourses();
   }, []);
 
-  const renderRating = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
-    
-    for (let i = 0; i < 5; i++) {
-      if (i < fullStars) {
-        stars.push(<FaStar key={i} className="star filled" />);
-      } else if (i === fullStars && hasHalfStar) {
-        stars.push(<FaStar key={i} className="star half-filled" />);
-      } else {
-        stars.push(<FaRegStar key={i} className="star" />);
-      }
-    }
-    
-    return stars;
+  const handleCourseClick = (courseId) => {
+    navigate(isAuthenticated ? `/courses/${courseId}` : '/login');
   };
 
+  const handleSubscribeClick = (courseId) => {
+    if (!isAuthenticated) return navigate('/login');
+    console.log(`S'abonner au cours ${courseId}`);
+  };
+
+  const loadMoreCourses = () => {
+    setVisibleCount((prev) => prev + 3);
+  };
+
+  if (loading) return <div className="loading">Chargement...</div>;
+  if (error) return <div className="error">{error}</div>;
+
   return (
-    <section className="course-grid-section">
-      <div className="container">
-        <div className="section-header">
-          <h2>Nos formations populaires</h2>
-          <p>Découvrez nos cours les plus appréciés par nos étudiants</p>
-        </div>
-        
-        {loading ? (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-          </div>
-        ) : error ? (
-          <div className="error-message">{error}</div>
-        ) : courses.length > 0 ? (
-          <div className="courses-grid">
-            {courses.map(course => (
-              <div key={course._id} className="course-card">
-                <div className="course-image">
-                  <img src={course.imageUrl || 'https://via.placeholder.com/300x200'} alt={course.title} />
-                  <div className="course-badge">Populaire</div>
-                </div>
-                <div className="course-content">
-                  <h3 className="course-title">{course.title}</h3>
-                  <p className="course-instructor">Par {course.instructor || 'Anonyme'}</p>
-                  
-                  <div className="course-meta">
-                    <div className="course-rating">
-                      {renderRating(course.rating || 4.5)}
-                      <span>{course.rating?.toFixed(1) || '4.5'}</span>
-                    </div>
-                    <div className="course-stats">
-                      <span><FaUsers /> {course.enrollments || 0}</span>
-                      <span><FaClock /> {course.duration || '10h'}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="course-price">
-                    {course.discountPrice ? (
-                      <>
-                        <span className="original-price">${course.price}</span>
-                        <span className="discount-price">${course.discountPrice}</span>
-                      </>
-                    ) : (
-                      <span>${course.price || 'Gratuit'}</span>
-                    )}
-                  </div>
-                  
-                  <button className="enroll-button">S'inscrire</button>
-                </div>
+    <div className="course-grid-container">
+      <h1 className="course-grid-title">
+        Nos formations populaires <p>Découvrez nos cours les plus appréciés</p>
+      </h1>
+
+      <div className="course-grid">
+        {courses.slice(0, visibleCount).map((course) => (
+          <div key={course._id} className="course-card">
+            <div className="course-image-container">
+              <img
+                src={course.imageUrl || '/default-course.jpg'}
+                alt={course.title}
+                className="course-image"
+              />
+              <div className="followers-count">
+                <FaUsers /> {course.followerCount || 0}
               </div>
-            ))}
+            </div>
+
+            <div className="course-details">
+              <h3>{course.title}</h3>
+              <p className="description">
+                {course.description?.substring(0, 100)}
+                {course.description?.length > 100 ? '...' : ''}
+              </p>
+
+              <div className="instructor-info">
+                <FaUserTie className="instructor-icon" />
+                <span>
+                  {course.createdBy?.prenom} {course.createdBy?.nom}
+                </span>
+              </div>
+
+              <button onClick={() => handleSubscribeClick(course._id)} className="subscribe-button">
+                S'abonner
+              </button>
+              <button onClick={() => handleCourseClick(course._id)} className="view-button">
+                Voir le détail
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="no-courses">Aucun cours disponible pour le moment</div>
-        )}
-        
-        <div className="view-all-container">
-          <button className="view-all-button">Voir toutes les formations</button>
-        </div>
+        ))}
       </div>
-    </section>
+
+      {visibleCount < courses.length && (
+        <div className="load-more">
+          <button onClick={loadMoreCourses} className="load-more-button">
+            Plus de cours
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 

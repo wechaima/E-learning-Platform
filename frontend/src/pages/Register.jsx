@@ -39,10 +39,7 @@ export default function Register() {
     <div className="auth-container">
       <header className="auth-header">
         <div className="header-content">
-          <Link to="/" className="back-button">
-            <FaArrowLeft className="icon" />
-            <span>Retour à l'accueil</span>
-          </Link>
+          
           <h1 className="logo">EduPlatform</h1>
         </div>
       </header>
@@ -51,7 +48,7 @@ export default function Register() {
         <div className="auth-card">
           <div className="card-header">
             <h2>Créez votre compte</h2>
-            <p>Rejoignez notre communauté d'apprentissage</p>
+           
           </div>
 
           {error && (

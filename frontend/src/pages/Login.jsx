@@ -16,51 +16,30 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setError('');
-  
-  try {
-    const res = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', res.data.token);
-    
-    if (rememberMe) {
-      localStorage.setItem('rememberMe', 'true');
-    } else {
-      localStorage.removeItem('rememberMe');
-    }
-    
-    // Connexion via le contexte d'authentification
-    login(res.data.user, res.data.token);
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-    // Redirection en fonction du rôle
-    switch(res.data.user.role) {
-      case 'admin':
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      localStorage.setItem('token', res.data.token);
+      login(res.data.user, res.data.token);
+
+      console.log('User role:', res.data.user.role);
+      
+      const role = res.data.user.role.toLowerCase();
+
+      if (role === 'admin' || role === 'superadmin') {
         navigate('/admin');
-        break;
-      case 'formateur':
+      } else if (role === 'formateur') {
         navigate('/formateur/dashboard');
-        break;
-      case 'etudiant': // Note: j'ai changé 'visiteur' pour 'etudiant' pour correspondre à votre App.js
-        navigate('/visiteur');
-        break;
-      default:
+      } else if (role === 'etudiant') {
+        navigate('/etudiant');
+      } else {
         navigate('/');
-    }
-    } catch (err) {
-      let errorMessage = 'Email ou mot de passe incorrect';
-      
-      if (err.response) {
-        if (err.response.status === 401) {
-          errorMessage = 'Identifiants invalides';
-        } else if (err.response.data?.message) {
-          errorMessage = err.response.data.message;
-        }
-      } else if (err.request) {
-        errorMessage = 'Erreur de connexion au serveur';
       }
-      
-      setError(errorMessage);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la connexion');
     } finally {
       setIsLoading(false);
     }
@@ -74,10 +53,6 @@ export default function Login() {
     <div className="auth-container">
       <header className="auth-header">
         <div className="header-content">
-          <Link to="/" className="back-button">
-            <FaArrowLeft className="icon" />
-            <span>Retour à l'accueil</span>
-          </Link>
           <h1 className="logo">EduPlatform</h1>
         </div>
       </header>
@@ -86,7 +61,6 @@ export default function Login() {
         <div className="auth-card">
           <div className="card-header">
             <h2>Connectez-vous à votre compte</h2>
-            
           </div>
 
           {error && (
@@ -104,7 +78,6 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                
                 required
               />
             </div>
@@ -131,17 +104,7 @@ export default function Login() {
             </div>
 
             <div className="form-options">
-              <div className="remember-me">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <label htmlFor="remember-me">Se souvenir de moi</label>
-              </div>
-              
-              <Link to="/mot-de-passe-oublie" className="forgot-password">
+              <Link to="/forgot-password" className="forgot-password">
                 Mot de passe oublié ?
               </Link>
             </div>

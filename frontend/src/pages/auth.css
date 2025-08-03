@@ -1,6 +1,6 @@
 :root {
   --primary-color: #4f46e5;
-  --primary-hover: #4338ca;
+  --primary-hover: #4f46e5;
   --error-color: #dc2626;
   --text-color: #374151;
   --light-gray: #f3f4f6;
@@ -333,5 +333,105 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
+  }
+}
+/* Forgotten Password Specific Styles */
+.forgot-password-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.timer-display {
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.timer-warning {
+  color: var(--error-color);
+}
+
+.resend-code {
+  margin-top: 1rem;
+}
+
+.resend-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.5rem;
+  text-decoration: underline;
+}
+
+.resend-button:hover {
+  color: var(--primary-hover);
+}
+
+.resend-button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  gap: 0.5rem;
+}
+
+.step {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+}
+
+.step.active {
+  background-color: var(--primary-color);
+}
+
+.password-match-error {
+  color: var(--error-color);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* Adaptations for the forgot password flow */
+.forgot-password-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.forgot-password-form .submit-button {
+  margin-top: 1rem;
+}
+
+/* Transition between steps */
+.step-transition {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .forgot-password-container {
+    padding: 0 1rem;
+  }
+  
+  .auth-card {
+    padding: 1.5rem;
+  }
+  
+  .step-indicator {
+    margin-bottom: 1rem;
   }
 }
