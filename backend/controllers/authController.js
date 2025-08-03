@@ -325,3 +325,65 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Mettre à jour le mot de passe
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tous les champs sont obligatoires'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Vérifier l'ancien mot de passe
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ancien mot de passe incorrect'
+      });
+    }
+
+    // Valider le nouveau mot de passe
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.{8,})/;
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 8 caractères'
+      });
+    }
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mot de passe doit contenir une majuscule et un caractère spécial'
+      });
+    }
+
+    // Hacher et enregistrer le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Mot de passe mis à jour avec succès' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+};

@@ -75,4 +75,34 @@
 
 .save-btn:hover {
   background: #2980b9;
+}.error-message {
+  color: #ff4444;
+  font-size: 0.8rem;
+  margin-top: 5px;
+  display: block;
+}
+
+input.error, select.error {
+  border-color: #ff4444;
+}
+/* Ajoutez ces styles */
+.form-group {
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.error-message {
+  color: #ff4444;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+  display: block;
+}
+
+.input-error {
+  border: 1px solid #ff4444 !important;
+  box-shadow: 0 0 0 1px #ff4444;
+}
+
+.input-success {
+  border: 1px solid #4CAF50 !important;
 }

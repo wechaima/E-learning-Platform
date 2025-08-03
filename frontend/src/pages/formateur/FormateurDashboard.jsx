@@ -11,6 +11,10 @@ import {
   FiEdit,
   FiTrash2,
   FiMail,
+  FiLock,
+  FiEye,
+  FiEyeOff,
+  FiBarChart2
 } from 'react-icons/fi';
 import { Menu, MenuItem, MenuButton } from '@szhsin/react-menu';
 import '@szhsin/react-menu/dist/index.css';
@@ -36,11 +40,21 @@ function FormateurDashboard() {
   const [user, setUser] = useState(null);
   const [showAddCourseModal, setShowAddCourseModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [profileTab, setProfileTab] = useState('info');
   const [profileForm, setProfileForm] = useState({
     nom: '',
     prenom: '',
     email: ''
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false
   });
   const [showCourseDetailModal, setShowCourseDetailModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -97,20 +111,13 @@ function FormateurDashboard() {
     e.preventDefault();
     
     if (!profileForm.nom || !profileForm.prenom || !profileForm.email) {
-      return setError('Les champs nom, prénom et email sont obligatoires');
+      return toast.error('Les champs nom, prénom et email sont obligatoires');
     }
 
-    setPendingUpdate(profileForm);
-    setShowConfirmationModal(true);
-  };
-
-  const confirmProfileUpdate = async () => {
-    setShowConfirmationModal(false);
-    
     try {
       const response = await api.put(
         '/user/profile',
-        pendingUpdate,
+        profileForm,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -124,19 +131,87 @@ function FormateurDashboard() {
         
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        setEditMode(false);
         
-        setProfileForm({
-          nom: updatedUser.nom,
-          prenom: updatedUser.prenom,
-          email: updatedUser.email
-        });
-
         toast.success('Profil mis à jour avec succès!');
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur lors de la mise à jour du profil');
     }
+  };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    
+    try {
+      // Validation côté client
+      if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+        return toast.error('Tous les champs sont obligatoires');
+      }
+
+      if (passwordForm.newPassword.length < 8) {
+        return toast.error('Le mot de passe doit contenir au moins 8 caractères');
+      }
+
+      if (!/[A-Z]/.test(passwordForm.newPassword) || !/[!@#$%^&*]/.test(passwordForm.newPassword)) {
+        return toast.error('Le mot de passe doit contenir une majuscule et un caractère spécial');
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        return toast.error('Les mots de passe ne correspondent pas');
+      }
+
+      const response = await api.put(
+        '/user/change-password',
+        {
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Mot de passe mis à jour avec succès!');
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      }
+    } catch (err) {
+      console.error('Détails de l\'erreur:', {
+        message: err.message,
+        response: err.response?.data,
+        config: err.config
+      });
+
+      let errorMessage = 'Erreur serveur - Veuillez réessayer plus tard';
+      
+      if (err.response) {
+        if (err.response.status === 400) {
+          errorMessage = err.response.data.message || 'Données invalides';
+        } else if (err.response.status === 401) {
+          errorMessage = 'Ancien mot de passe incorrect';
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
+        }
+      } else if (err.request) {
+        errorMessage = 'Pas de réponse du serveur - Vérifiez votre connexion';
+      }
+
+      toast.error(errorMessage);
+    }
+  };
+
+  const togglePasswordVisibility = (field) => {
+    setShowPassword({
+      ...showPassword,
+      [field]: !showPassword[field]
+    });
   };
 
   const handleCreateCourse = async (courseData) => {
@@ -324,7 +399,7 @@ function FormateurDashboard() {
           isOpen={showProfileModal}
           onRequestClose={() => {
             setShowProfileModal(false);
-            setEditMode(false);
+            setProfileTab('info');
           }}
           className="profile-modal"
           overlayClassName="profile-overlay"
@@ -335,7 +410,7 @@ function FormateurDashboard() {
               <button 
                 onClick={() => {
                   setShowProfileModal(false);
-                  setEditMode(false);
+                  setProfileTab('info');
                 }}
                 className="close-button"
               >
@@ -343,7 +418,28 @@ function FormateurDashboard() {
               </button>
             </div>
             
-            {editMode ? (
+            <div className="profile-tabs">
+              <button 
+                className={`profile-tab ${profileTab === 'info' ? 'active' : ''}`}
+                onClick={() => setProfileTab('info')}
+              >
+                Informations
+              </button>
+              <button 
+                className={`profile-tab ${profileTab === 'stats' ? 'active' : ''}`}
+                onClick={() => setProfileTab('stats')}
+              >
+                Statistiques
+              </button>
+              <button 
+                className={`profile-tab ${profileTab === 'password' ? 'active' : ''}`}
+                onClick={() => setProfileTab('password')}
+              >
+                Mot de passe
+              </button>
+            </div>
+            
+            {profileTab === 'info' ? (
               <form onSubmit={handleProfileUpdate} className="profile-form">
                 <div className="form-group">
                   <label>Prénom</label>
@@ -369,50 +465,110 @@ function FormateurDashboard() {
                     onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
                   />
                 </div>
+                <div className="form-group">
+                  <label>Rôle</label>
+                  <input
+                    type="text"
+                    value="Formateur"
+                    disabled
+                    className="disabled-input"
+                  />
+                </div>
                 <div className="form-actions">
-                  <button type="button" onClick={() => setEditMode(false)} className="cancel-btn">
-                    Annuler
-                  </button>
                   <button type="submit" className="save-btn">
                     Enregistrer
                   </button>
                 </div>
               </form>
-            ) : (
-              <div className="profile-info">
-                <div className="info-item">
-                  <FiUser className="info-icon" />
-                  <span>{user?.prenom} {user?.nom}</span>
-                </div>
-                <div className="info-item">
-                  <FiMail className="info-icon" />
-                  <span>{user?.email}</span>
-                </div>
-                <div className="progress-summary">
-                  <h4>Statistiques</h4>
-                  <div className="progress-item">
-                    <span>Cours créés:</span>
-                    <span>{myCourses.length}</span>
+            ) : profileTab === 'stats' ? (
+              <div className="stats-container">
+                <div className="stat-card">
+                  <FiBook className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Cours créés</h4>
+                    <p>{myCourses.length}</p>
                   </div>
-                  <div className="progress-item">
-                    <span>Étudiants inscrits:</span>
-                    <span>
+                </div>
+                <div className="stat-card">
+                  <FiUser className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Étudiants inscrits</h4>
+                    <p>
                       {myCourses.reduce((acc, course) => acc + (course.followerCount || 0), 0)}
-                    </span>
+                    </p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setEditMode(true)} 
-                  className="edit-btn"
-                >
-                  <FiEdit style={{ marginRight: '5px' }} />
-                  Modifier le profil
-                </button>
               </div>
+            ) : (
+              <form onSubmit={handlePasswordUpdate} className="password-form">
+                <div className="form-group">
+                  <label>
+                    <FiLock /> Ancien mot de passe
+                  </label>
+                  <div className="password-input">
+                    <input
+                      type={showPassword.current ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => togglePasswordVisibility('current')}
+                      className="toggle-password"
+                    >
+                      {showPassword.current ? <FiEye /> : <FiEyeOff />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>
+                    <FiLock /> Nouveau mot de passe
+                  </label>
+                  <div className="password-input">
+                    <input
+                      type={showPassword.new ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => togglePasswordVisibility('new')}
+                      className="toggle-password"
+                    >
+                      {showPassword.new ? <FiEye /> : <FiEyeOff />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>
+                    <FiLock /> Confirmer le mot de passe
+                  </label>
+                  <div className="password-input">
+                    <input
+                      type={showPassword.confirm ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => togglePasswordVisibility('confirm')}
+                      className="toggle-password"
+                    >
+                      {showPassword.confirm ? <FiEye /> : <FiEyeOff />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="save-btn">
+                    Modifier le mot de passe
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </Modal>
 
+        {/* Les autres modals (création/édition/suppression de cours) restent inchangés */}
         <Modal
           isOpen={showAddCourseModal}
           onRequestClose={() => setShowAddCourseModal(false)}

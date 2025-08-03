@@ -12,6 +12,7 @@ import './AdminDashboard.css';
 import AdminFormModal from './AdminFormModal.jsx';
 import FormateurFormModal from './FormateurFormModal.jsx';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal.jsx';
+import ProfileModal from './ProfileModal.jsx';
 
 function AdminDashboard() {
   const [admins, setAdmins] = useState([]);
@@ -36,7 +37,7 @@ function AdminDashboard() {
   const [formateurToDelete, setFormateurToDelete] = useState(null);
   const [showSaveFormateurConfirmation, setShowSaveFormateurConfirmation] = useState(false);
   const [formateurDataToSave, setFormateurDataToSave] = useState(null);
-
+const [showProfileModal, setShowProfileModal] = useState(false);
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -201,12 +202,32 @@ function AdminDashboard() {
     setShowProfileDropdown(false);
     setUserProfile(null);
   };
+const handleEditProfile = () => {
+  setShowProfileModal(true);
+  setShowProfileDropdown(false);
+};
+const handleUpdateProfile = async (profileData) => {
+  try {
+    const res = await api.put('/auth/profile', profileData);
+    setUserProfile(res.data.data);
+    showSuccess('Profil mis à jour avec succès');
+    setShowProfileModal(false);
+  } catch (err) {
+    showError(err.response?.data?.message || 'Erreur lors de la mise à jour du profil');
+  }
+};
 
-  const handleEditProfile = () => {
-    setCurrentAdmin(userProfile);
-    setShowAdminModal(true);
-    setShowProfileDropdown(false);
-  };
+const handleChangePassword = async (passwordData) => {
+  try {
+    const res = await api.put('/auth/change-password', passwordData);
+    showSuccess(res.data.message);
+    setShowProfileModal(false);
+  } catch (err) {
+    // Afficher le message d'erreur du serveur directement
+    showError(err.response?.data?.message || 'Erreur lors du changement de mot de passe');
+  }
+};
+
 
   const handleNotifications = () => {
     alert('Fonctionnalité de notifications à venir!');
@@ -448,6 +469,14 @@ function AdminDashboard() {
           }}
         />
       )}
+      {showProfileModal && (
+  <ProfileModal
+    user={userProfile}
+    onClose={() => setShowProfileModal(false)}
+    onUpdateProfile={handleUpdateProfile}
+    onChangePassword={handleChangePassword}
+  />
+)}
 
       {/* Modals de confirmation */}
       {showDeleteConfirmation && (
