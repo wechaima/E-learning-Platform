@@ -105,4 +105,97 @@ input.error, select.error {
 
 .input-success {
   border: 1px solid #4CAF50 !important;
+}/* Ajoutez ces styles à votre fichier existant */
+
+.password-input-container {
+  position: relative;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  padding-right: 40px; /* Espace pour le bouton */
+  width: 100%;
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-password-btn:hover {
+  color: #333;
+}
+
+.toggle-password-btn svg {
+  font-size: 16px;
+}/* Styles pour les champs de mot de passe */
+.password-field {
+  position: relative;
+  width: 100%;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 35px; /* Espace pour l'icône */
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-password:hover {
+  color: #333;
+}
+
+.toggle-password svg {
+  font-size: 16px;
+}
+
+/* Assurez-vous que tous les inputs ont le même style */
+.form-group input,
+.form-group select,
+.password-field input {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  height: 40px; /* Hauteur fixe pour tous les champs */
+}
+
+/* Style pour les erreurs */
+.input-error {
+  border-color: #ff4444 !important;
+}
+
+.error-message {
+  color: #ff4444;
+  font-size: 14px;
+  margin-top: 5px;
+  display: block;
 }

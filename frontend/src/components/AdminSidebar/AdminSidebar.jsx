@@ -1,12 +1,21 @@
 import React from 'react';
-import { FaTimes, FaUsers, FaChalkboardTeacher, FaHome, FaCog, FaUserShield } from 'react-icons/fa';
+import { 
+  FaTimes, 
+  FaUsers, 
+  FaChalkboardTeacher, 
+  FaHome, 
+  FaCog, 
+  FaUserShield,
+  FaChartBar // Ajoutez cette importation
+} from 'react-icons/fa';
 import './AdminSidebar.css';
 
 const AdminSidebar = ({ 
   activeTab, 
   setActiveTab, 
   open = false, 
-  onClose = () => {} 
+  onClose = () => {},
+  userProfile
 }) => {
   return (
     <aside className={`admin-sidebar ${open ? 'open' : ''}`}>
@@ -23,13 +32,13 @@ const AdminSidebar = ({
       
       <nav className="sidebar-nav">
         <button
-          className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
+          className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => {
-            setActiveTab('home');
+            setActiveTab('dashboard');
             onClose();
           }}
         >
-          <FaHome className="nav-icon" />
+          <FaChartBar className="nav-icon" />
           Tableau de bord
         </button>
         
@@ -80,10 +89,16 @@ const AdminSidebar = ({
       
       <div className="sidebar-footer">
         <div className="user-profile">
-          <div className="user-avatar">AD</div>
+          <div className="user-avatar">
+            {userProfile?.prenom?.charAt(0)}{userProfile?.nom?.charAt(0)}
+          </div>
           <div className="user-info">
-            <div className="user-name">Admin</div>
-            <div className="user-role">Administrateur</div>
+            <div className="user-name">
+              {userProfile?.prenom} {userProfile?.nom}
+            </div>
+            <div className="user-role">
+              {userProfile?.role === 'superadmin' ? 'Super Admin' : 'Administrateur'}
+            </div>
           </div>
         </div>
       </div>

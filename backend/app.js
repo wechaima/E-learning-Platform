@@ -10,7 +10,7 @@ import courseRoutes from './routes/courseRoutes.js';
 import adminRoutes from './routes/admin.js';
 import progressRoutes from './routes/progress.js';
 
-
+import statsRoutes from './routes/stats.js';
 import userRoutes from './routes/user.js';
 
 dotenv.config();
@@ -32,6 +32,7 @@ app.use('/api/users', courseRoutes);
 // Après les autres app.use()
 app.use('/api/progress', progressRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/stats', statsRoutes);
 // Gestion des erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);

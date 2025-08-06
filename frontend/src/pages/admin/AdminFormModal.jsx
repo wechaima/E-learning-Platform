@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaTimes, FaUser, FaEnvelope, FaUserShield, FaLock } from 'react-icons/fa';
+import { FaTimes, FaUser, FaEnvelope, FaUserShield, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import './AdminFormModal.css';
 
 function AdminFormModal({ admin, onClose, onSubmit }) {
@@ -14,6 +14,8 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
 
   const [errors, setErrors] = useState({});
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     if (admin) {
@@ -100,6 +102,14 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
   const getInputClassName = (name) => {
     if (!formSubmitted) return '';
     return errors[name] ? 'input-error' : '';
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
   };
 
   return (
@@ -189,43 +199,60 @@ function AdminFormModal({ admin, onClose, onSubmit }) {
           </div>
           
           {!admin && (
-            <>
-              <div className="form-group">
-                <label>
-                  <FaLock className="input-icon" />
-                  Mot de passe
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={getInputClassName('password')}
-                />
-                {formSubmitted && errors.password && (
-                  <span className="error-message">{errors.password}</span>
-                )}
-              </div>
-              
-              <div className="form-group">
-                <label>
-                  <FaLock className="input-icon" />
-                  Confirmer le mot de passe
-                </label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className={getInputClassName('confirmPassword')}
-                />
-                {formSubmitted && errors.confirmPassword && (
-                  <span className="error-message">{errors.confirmPassword}</span>
-                )}
-              </div>
-            </>
-          )}
-          
+  <>
+    <div className="form-group">
+      <label>
+        <FaLock className="input-icon" />
+        Mot de passe
+      </label>
+      <div className="password-field">
+        <input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          className={getInputClassName('password')}
+        />
+        <button 
+          type="button" 
+          className="toggle-password"
+          onClick={togglePasswordVisibility}
+        >
+          {showPassword ? <FaEye /> : <FaEyeSlash />}
+        </button>
+      </div>
+      {formSubmitted && errors.password && (
+        <span className="error-message">{errors.password}</span>
+      )}
+    </div>
+    
+    <div className="form-group">
+      <label>
+        <FaLock className="input-icon" />
+        Confirmer le mot de passe
+      </label>
+      <div className="password-field">
+        <input
+          type={showConfirmPassword ? "text" : "password"}
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          className={getInputClassName('confirmPassword')}
+        />
+        <button 
+          type="button" 
+          className="toggle-password"
+          onClick={toggleConfirmPasswordVisibility}
+        >
+          {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
+        </button>
+      </div>
+      {formSubmitted && errors.confirmPassword && (
+        <span className="error-message">{errors.confirmPassword}</span>
+      )}
+    </div>
+  </>
+)}
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="cancel-btn">Annuler</button>
             <button type="submit" className="save-btn">{admin ? 'Modifier' : 'Ajouter'}</button>

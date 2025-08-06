@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaUsers, FaChalkboardTeacher, FaPlus, FaBars, 
-  FaEdit, FaTrash, FaSignOutAlt, FaUserShield, FaBell, FaUserCircle 
+  FaEdit, FaTrash, FaSignOutAlt, FaUserShield, FaBell, FaUserCircle,
+  FaChartBar, FaBook
 } from 'react-icons/fa';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AdminSidebar from '../../components/AdminSidebar/AdminSidebar';
@@ -14,11 +17,14 @@ import FormateurFormModal from './FormateurFormModal.jsx';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal.jsx';
 import ProfileModal from './ProfileModal.jsx';
 
+// Enregistrer les composants Chart.js
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+
 function AdminDashboard() {
   const [admins, setAdmins] = useState([]);
   const [formateurs, setFormateurs] = useState([]);
   const [etudiants, setEtudiants] = useState([]);
-  const [activeTab, setActiveTab] = useState('formateurs');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showFormateurModal, setShowFormateurModal] = useState(false);
@@ -26,6 +32,13 @@ function AdminDashboard() {
   const [currentFormateur, setCurrentFormateur] = useState(null);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [stats, setStats] = useState({
+    etudiants: 0,
+    formateurs: 0,
+    admins: 0,
+    cours: 0,
+    abonnements: 0
+  });
   const navigate = useNavigate();
 
   // États pour les confirmations
@@ -37,7 +50,8 @@ function AdminDashboard() {
   const [formateurToDelete, setFormateurToDelete] = useState(null);
   const [showSaveFormateurConfirmation, setShowSaveFormateurConfirmation] = useState(false);
   const [formateurDataToSave, setFormateurDataToSave] = useState(null);
-const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -51,32 +65,24 @@ const [showProfileModal, setShowProfileModal] = useState(false);
         console.error(err);
       }
     };
+
     fetchUserProfile();
-    fetchData();
+    
+    if (activeTab === 'dashboard') {
+      fetchStats();
+    } else {
+      fetchData();
+    }
   }, [activeTab]);
 
-  const showError = (message) => {
-    toast.error(message, {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
-  };
-
-  const showSuccess = (message) => {
-    toast.success(message, {
-      position: "top-right",
-      autoClose: 3000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
+  const fetchStats = async () => {
+    try {
+      const res = await api.get('/stats/dashboard-stats');
+      setStats(res.data.data);
+    } catch (err) {
+      console.error('Erreur lors du chargement des statistiques:', err);
+      toast.error('Erreur lors du chargement des statistiques');
+    }
   };
 
   const fetchData = async () => {
@@ -104,6 +110,92 @@ const [showProfileModal, setShowProfileModal] = useState(false);
     }
   };
 
+  // Configuration des graphiques
+  const barChartData = {
+    labels: ['Étudiants', 'Formateurs', 'Admins', 'Cours', 'Abonnements'],
+    datasets: [
+      {
+        label: 'Nombre',
+        data: [stats.etudiants, stats.formateurs, stats.admins, stats.cours, stats.abonnements],
+        backgroundColor: [
+          'rgba(54, 162, 235, 0.6)',
+          'rgba(75, 192, 192, 0.6)',
+          'rgba(153, 102, 255, 0.6)',
+          'rgba(255, 206, 86, 0.6)',
+          'rgba(255, 99, 132, 0.6)'
+        ],
+        borderColor: [
+          'rgba(54, 162, 235, 1)',
+          'rgba(75, 192, 192, 1)',
+          'rgba(153, 102, 255, 1)',
+          'rgba(255, 206, 86, 1)',
+          'rgba(255, 99, 132, 1)'
+        ],
+        borderWidth: 1
+      }
+    ]
+  };
+
+  const pieChartData = {
+    labels: ['Étudiants', 'Formateurs', 'Admins'],
+    datasets: [
+      {
+        data: [stats.etudiants, stats.formateurs, stats.admins],
+        backgroundColor: [
+          'rgba(54, 162, 235, 0.6)',
+          'rgba(75, 192, 192, 0.6)',
+          'rgba(153, 102, 255, 0.6)'
+        ],
+        borderColor: [
+          'rgba(54, 162, 235, 1)',
+          'rgba(75, 192, 192, 1)',
+          'rgba(153, 102, 255, 1)'
+        ],
+        borderWidth: 1
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top'
+      },
+      title: {
+        display: true,
+        text: 'Statistiques de la plateforme',
+        font: {
+          size: 16
+        }
+      }
+    }
+  };
+
+  const showError = (message) => {
+    toast.error(message, {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showSuccess = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
   const handleAddAdmin = async (formData) => {
     try {
       const res = await api.post('/auth/admins', formData);
@@ -123,7 +215,7 @@ const [showProfileModal, setShowProfileModal] = useState(false);
         prev.map(a => a._id === currentAdmin._id ? res.data : a)
       );
       if (currentAdmin._id === userProfile?.id) {
-        setUserProfile(res.data); // Update user profile if self-edited
+        setUserProfile(res.data);
       }
       setShowAdminModal(false);
       setCurrentAdmin(null);
@@ -202,32 +294,32 @@ const [showProfileModal, setShowProfileModal] = useState(false);
     setShowProfileDropdown(false);
     setUserProfile(null);
   };
-const handleEditProfile = () => {
-  setShowProfileModal(true);
-  setShowProfileDropdown(false);
-};
-const handleUpdateProfile = async (profileData) => {
-  try {
-    const res = await api.put('/auth/profile', profileData);
-    setUserProfile(res.data.data);
-    showSuccess('Profil mis à jour avec succès');
-    setShowProfileModal(false);
-  } catch (err) {
-    showError(err.response?.data?.message || 'Erreur lors de la mise à jour du profil');
-  }
-};
 
-const handleChangePassword = async (passwordData) => {
-  try {
-    const res = await api.put('/auth/change-password', passwordData);
-    showSuccess(res.data.message);
-    setShowProfileModal(false);
-  } catch (err) {
-    // Afficher le message d'erreur du serveur directement
-    showError(err.response?.data?.message || 'Erreur lors du changement de mot de passe');
-  }
-};
+  const handleEditProfile = () => {
+    setShowProfileModal(true);
+    setShowProfileDropdown(false);
+  };
 
+  const handleUpdateProfile = async (profileData) => {
+    try {
+      const res = await api.put('/auth/profile', profileData);
+      setUserProfile(res.data.data);
+      showSuccess('Profil mis à jour avec succès');
+      setShowProfileModal(false);
+    } catch (err) {
+      showError(err.response?.data?.message || 'Erreur lors de la mise à jour du profil');
+    }
+  };
+
+  const handleChangePassword = async (passwordData) => {
+    try {
+      const res = await api.put('/auth/change-password', passwordData);
+      showSuccess(res.data.message);
+      setShowProfileModal(false);
+    } catch (err) {
+      showError(err.response?.data?.message || 'Erreur lors du changement de mot de passe');
+    }
+  };
 
   const handleNotifications = () => {
     alert('Fonctionnalité de notifications à venir!');
@@ -241,14 +333,16 @@ const handleChangePassword = async (passwordData) => {
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
         onClose={() => {}}
+        userProfile={userProfile}
       />
       
       <div className="admin-main-content">
         <header className="admin-header">
           <h1 className="admin-title">
-            {activeTab === 'formateurs' ? 'Gestion des formateurs' 
-             : activeTab === 'etudiants' ? 'Liste des étudiants' 
-             : 'Gestion des admins'}
+            {activeTab === 'Tableau de bord' ? 'Tableau de bord' :
+             activeTab === 'formateurs' ? 'Gestion des formateurs' : 
+             activeTab === 'etudiants' ? 'Liste des étudiants' : 
+             'Gestion des admins'}
           </h1>
           <div className="profile-section">
             <button 
@@ -278,159 +372,216 @@ const handleChangePassword = async (passwordData) => {
         </header>
 
         <main className="admin-content">
-          <div className="admin-card">
-            <div className="card-header">
-              <h2>
-                {activeTab === 'formateurs' ? `Formateurs (${formateurs.length})` 
-                 : activeTab === 'etudiants' ? `Étudiants (${etudiants.length})` 
-                 : `Admins (${admins.length})`}
-              </h2>
-              {activeTab === 'formateurs' && (
-                <button 
-                  onClick={() => {
-                    setCurrentFormateur(null);
-                    setShowFormateurModal(true);
-                  }}
-                  className="add-btn"
-                >
-                  <FaPlus /> Ajouter
-                </button>
-              )}
-              {activeTab === 'admins' && (
-                <button 
-                  onClick={() => {
-                    setCurrentAdmin(null);
-                    setShowAdminModal(true);
-                  }}
-                  className="add-btn"
-                >
-                  <FaPlus /> Ajouter
-                </button>
+          {activeTab === 'dashboard' ? (
+            <div className="dashboard-stats">
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ backgroundColor: '#3b82f6' }}>
+                    <FaUsers />
+                  </div>
+                  <div className="stat-info">
+                    <h3>Étudiants</h3>
+                    <p>{stats.etudiants}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ backgroundColor: '#10b981' }}>
+                    <FaChalkboardTeacher />
+                  </div>
+                  <div className="stat-info">
+                    <h3>Formateurs</h3>
+                    <p>{stats.formateurs}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ backgroundColor: '#8b5cf6' }}>
+                    <FaUserShield />
+                  </div>
+                  <div className="stat-info">
+                    <h3>Admins</h3>
+                    <p>{stats.admins}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ backgroundColor: '#f59e0b' }}>
+                    <FaBook />
+                  </div>
+                  <div className="stat-info">
+                    <h3>Cours</h3>
+                    <p>{stats.cours}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="charts-container">
+                <div className="chart-card">
+                  <h3>Statistiques globales</h3>
+                  <Bar data={barChartData} options={chartOptions} />
+                </div>
+                <div className="chart-card">
+                  <h3>Répartition des utilisateurs</h3>
+                  <Pie data={pieChartData} options={chartOptions} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="admin-card">
+              <div className="card-header">
+                <h2>
+                  {activeTab === 'formateurs' ? `Formateurs (${formateurs.length})` 
+                   : activeTab === 'etudiants' ? `Étudiants (${etudiants.length})` 
+                   : `Admins (${admins.length})`}
+                </h2>
+                {activeTab === 'formateurs' && (
+                  <button 
+                    onClick={() => {
+                      setCurrentFormateur(null);
+                      setShowFormateurModal(true);
+                    }}
+                    className="add-btn"
+                  >
+                    <FaPlus /> Ajouter
+                  </button>
+                )}
+                {activeTab === 'admins' && (
+                  <button 
+                    onClick={() => {
+                      setCurrentAdmin(null);
+                      setShowAdminModal(true);
+                    }}
+                    className="add-btn"
+                  >
+                    <FaPlus /> Ajouter
+                  </button>
+                )}
+              </div>
+              
+              {loading ? (
+                <div className="loading-spinner">
+                  <div className="spinner"></div>
+                  <p>Chargement en cours...</p>
+                </div>
+              ) : (
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        {activeTab === 'formateurs' ? (
+                          <>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Spécialité</th>
+                            <th>Actions</th>
+                          </>
+                        ) : activeTab === 'etudiants' ? (
+                          <>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Date inscription</th>
+                          </>
+                        ) : (
+                          <>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Rôle</th>
+                            <th>Actions</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeTab === 'formateurs' ? (
+                        formateurs.length > 0 ? (
+                          formateurs.map((formateur) => (
+                            <tr key={formateur._id}>
+                              <td>{formateur.prenom} {formateur.nom}</td>
+                              <td>{formateur.email}</td>
+                              <td>{formateur.specialite}</td>
+                              <td className="actions">
+                                <button 
+                                  onClick={() => {
+                                    setCurrentFormateur(formateur);
+                                    setShowFormateurModal(true);
+                                  }}
+                                  className="edit-btn"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setFormateurToDelete(formateur._id);
+                                    setShowDeleteFormateurConfirmation(true);
+                                  }}
+                                  className="delete-btn"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="no-data">Aucun formateur disponible</td>
+                          </tr>
+                        )
+                      ) : activeTab === 'etudiants' ? (
+                        etudiants.length > 0 ? (
+                          etudiants.map((etudiant) => (
+                            <tr key={etudiant._id}>
+                              <td>{etudiant.prenom} {etudiant.nom}</td>
+                              <td>{etudiant.email}</td>
+                              <td>{new Date(etudiant.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={3} className="no-data">Aucun étudiant disponible</td>
+                          </tr>
+                        )
+                      ) : (
+                        admins.length > 0 ? (
+                          admins.map((admin) => (
+                            <tr key={admin._id}>
+                              <td>{admin.prenom} {admin.nom}</td>
+                              <td>{admin.email}</td>
+                              <td>{admin.role || 'Admin'}</td>
+                              <td className="actions">
+                                <button 
+                                  onClick={() => {
+                                    setCurrentAdmin(admin);
+                                    setShowAdminModal(true);
+                                  }}
+                                  className="edit-btn"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setItemToDelete(admin._id);
+                                    setShowDeleteConfirmation(true);
+                                  }}
+                                  className="delete-btn"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="no-data">Aucun admin disponible</td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-            
-            {loading ? (
-              <div className="loading-spinner">
-                <div className="spinner"></div>
-                <p>Chargement en cours...</p>
-              </div>
-            ) : (
-              <div className="table-container">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      {activeTab === 'formateurs' ? (
-                        <>
-                          <th>Nom</th>
-                          <th>Email</th>
-                          <th>Spécialité</th>
-                          <th>Actions</th>
-                        </>
-                      ) : activeTab === 'etudiants' ? (
-                        <>
-                          <th>Nom</th>
-                          <th>Email</th>
-                          <th>Date inscription</th>
-                        </>
-                      ) : (
-                        <>
-                          <th>Nom</th>
-                          <th>Email</th>
-                          <th>Rôle</th>
-                          <th>Actions</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeTab === 'formateurs' ? (
-                      formateurs.length > 0 ? (
-                        formateurs.map((formateur) => (
-                          <tr key={formateur._id}>
-                            <td>{formateur.prenom} {formateur.nom}</td>
-                            <td>{formateur.email}</td>
-                            <td>{formateur.specialite}</td>
-                            <td className="actions">
-                              <button 
-                                onClick={() => {
-                                  setCurrentFormateur(formateur);
-                                  setShowFormateurModal(true);
-                                }}
-                                className="edit-btn"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setFormateurToDelete(formateur._id);
-                                  setShowDeleteFormateurConfirmation(true);
-                                }}
-                                className="delete-btn"
-                              >
-                                <FaTrash />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="no-data">Aucun formateur disponible</td>
-                        </tr>
-                      )
-                    ) : activeTab === 'etudiants' ? (
-                      etudiants.length > 0 ? (
-                        etudiants.map((etudiant) => (
-                          <tr key={etudiant._id}>
-                            <td>{etudiant.prenom} {etudiant.nom}</td>
-                            <td>{etudiant.email}</td>
-                            <td>{new Date(etudiant.createdAt).toLocaleDateString()}</td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} className="no-data">Aucun étudiant disponible</td>
-                        </tr>
-                      )
-                    ) : (
-                      admins.length > 0 ? (
-                        admins.map((admin) => (
-                          <tr key={admin._id}>
-                            <td>{admin.prenom} {admin.nom}</td>
-                            <td>{admin.email}</td>
-                            <td>{admin.role || 'Admin'}</td>
-                            <td className="actions">
-                              <button 
-                                onClick={() => {
-                                  setCurrentAdmin(admin);
-                                  setShowAdminModal(true);
-                                }}
-                                className="edit-btn"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setItemToDelete(admin._id);
-                                  setShowDeleteConfirmation(true);
-                                }}
-                                className="delete-btn"
-                              >
-                                <FaTrash />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="no-data">Aucun admin disponible</td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          )}
         </main>
       </div>
 
@@ -469,16 +620,16 @@ const handleChangePassword = async (passwordData) => {
           }}
         />
       )}
-      {showProfileModal && (
-  <ProfileModal
-    user={userProfile}
-    onClose={() => setShowProfileModal(false)}
-    onUpdateProfile={handleUpdateProfile}
-    onChangePassword={handleChangePassword}
-  />
-)}
 
-      {/* Modals de confirmation */}
+      {showProfileModal && (
+        <ProfileModal
+          user={userProfile}
+          onClose={() => setShowProfileModal(false)}
+          onUpdateProfile={handleUpdateProfile}
+          onChangePassword={handleChangePassword}
+        />
+      )}
+
       {showDeleteConfirmation && (
         <ConfirmationModal
           message="Êtes-vous sûr de vouloir supprimer cet admin ?"
