@@ -12,7 +12,10 @@ import {
   FiEdit,
   FiMail,
   FiAward,
-  FiCheckCircle
+  FiCheckCircle,
+  FiLock,
+  FiEye,
+  FiEyeOff
 } from 'react-icons/fi';
 import { Menu, MenuItem, MenuButton } from '@szhsin/react-menu';
 import '@szhsin/react-menu/dist/index.css';
@@ -44,11 +47,21 @@ function EtudiantDashboard() {
   });
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [profileTab, setProfileTab] = useState('info');
   const [profileForm, setProfileForm] = useState({
     nom: '',
     prenom: '',
     email: ''
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false
   });
 
   useEffect(() => {
@@ -178,20 +191,13 @@ function EtudiantDashboard() {
     e.preventDefault();
     
     if (!profileForm.nom || !profileForm.prenom || !profileForm.email) {
-      return setError('Les champs nom, prénom et email sont obligatoires');
+      return toast.error('Les champs nom, prénom et email sont obligatoires');
     }
 
-    setPendingUpdate(profileForm);
-    setShowConfirmationModal(true);
-  };
-
-  const confirmProfileUpdate = async () => {
-    setShowConfirmationModal(false);
-    
     try {
       const response = await api.put(
         '/user/profile',
-        pendingUpdate,
+        profileForm,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -205,59 +211,90 @@ function EtudiantDashboard() {
         
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        setEditMode(false);
         
-        setProfileForm({
-          nom: updatedUser.nom,
-          prenom: updatedUser.prenom,
-          email: updatedUser.email,
-          currentPassword: '',
-          newPassword: ''
-        });
-
-        toast.success('Profil mis à jour avec succès!', {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-        });
-        
-        setError(null);
+        toast.success('Profil mis à jour avec succès!');
       }
     } catch (err) {
-      console.error('Erreur détaillée:', err);
-      
-      let errorMessage = "Échec de la mise à jour. Veuillez réessayer.";
-      
-      if (err.response) {
-        if (err.response.status === 401) {
-          errorMessage = "Mot de passe actuel incorrect";
-        } else if (err.response.status === 400) {
-          errorMessage = err.response.data.message || "Données invalides";
-        } else if (err.response.data && err.response.data.message) {
-          errorMessage = err.response.data.message;
+      console.error('Erreur:', err);
+      toast.error(err.response?.data?.message || 'Erreur lors de la mise à jour');
+    }
+  };
+
+  const handlePasswordUpdate = async (e) => {
+  e.preventDefault();
+  
+  try {
+    // Validation côté client
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      return toast.error('Tous les champs sont obligatoires');
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      return toast.error('Le mot de passe doit contenir au moins 8 caractères');
+    }
+
+    if (!/[A-Z]/.test(passwordForm.newPassword) || !/[!@#$%^&*]/.test(passwordForm.newPassword)) {
+      return toast.error('Le mot de passe doit contenir une majuscule et un caractère spécial');
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return toast.error('Les mots de passe ne correspondent pas');
+    }
+
+    const response = await api.put(
+      '/user/change-password',
+      {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
         }
       }
+    );
 
-      toast.error(errorMessage, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-      });
-      
-      setProfileForm(prev => ({
-        ...prev,
+    if (response.data.success) {
+      toast.success('Mot de passe mis à jour avec succès!');
+      setPasswordForm({
         currentPassword: '',
-        newPassword: ''
-      }));
+        newPassword: '',
+        confirmPassword: ''
+      });
     }
+  } catch (err) {
+    console.error('Détails de l\'erreur:', {
+      message: err.message,
+      response: err.response?.data,
+      config: err.config
+    });
+
+    let errorMessage = 'Erreur serveur - Veuillez réessayer plus tard';
+    
+    if (err.response) {
+      // Erreur avec réponse du serveur
+      if (err.response.status === 400) {
+        errorMessage = err.response.data.message || 'Données invalides';
+      } else if (err.response.status === 401) {
+        errorMessage = 'Ancien mot de passe incorrect';
+      } else if (err.response.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+    } else if (err.request) {
+      // La requête a été faite mais pas de réponse
+      errorMessage = 'Pas de réponse du serveur - Vérifiez votre connexion';
+    }
+
+    toast.error(errorMessage);
+  }
+};
+
+  const togglePasswordVisibility = (field) => {
+    setShowPassword({
+      ...showPassword,
+      [field]: !showPassword[field]
+    });
   };
 
   const filteredCourses = activeTab === 'all'
@@ -299,7 +336,6 @@ function EtudiantDashboard() {
           >
             <FiBook className="sidebar-icon" />
             <span>Mes cours suivis</span>
-           
           </button>
         </nav>
       </div>
@@ -323,7 +359,6 @@ function EtudiantDashboard() {
                 <span className="user-name">
                   {user.prenom} {user.nom}
                 </span>
-             
               </div>
             )}
             <Menu
@@ -331,7 +366,6 @@ function EtudiantDashboard() {
                 <MenuButton className="profile-button">
                   <div className="user-stats-badge">
                     <FiUser size={20} />
-                   
                   </div>
                 </MenuButton>
               }
@@ -357,30 +391,22 @@ function EtudiantDashboard() {
           </div>
         </header>
 
-        {showConfirmationModal && (
-          <ConfirmationModal
-            message="Êtes-vous sûr de vouloir modifier votre profil ?"
-            onConfirm={confirmProfileUpdate}
-            onCancel={() => setShowConfirmationModal(false)}
-          /> 
-        )}
-
         <Modal
           isOpen={showProfileModal}
           onRequestClose={() => {
             setShowProfileModal(false);
-            setEditMode(false);
+            setProfileTab('info');
           }}
           className="profile-modal"
           overlayClassName="profile-overlay"
         >
           <div className="profile-modal-content">
             <div className="profile-modal-header">
-              <h3>Profil Utilisateur</h3>
+              <h3>Mon Profil</h3>
               <button 
                 onClick={() => {
                   setShowProfileModal(false);
-                  setEditMode(false);
+                  setProfileTab('info');
                 }}
                 className="close-button"
               >
@@ -388,7 +414,28 @@ function EtudiantDashboard() {
               </button>
             </div>
             
-            {editMode ? (
+            <div className="profile-tabs">
+              <button 
+                className={`profile-tab ${profileTab === 'info' ? 'active' : ''}`}
+                onClick={() => setProfileTab('info')}
+              >
+                Informations
+              </button>
+              <button 
+                className={`profile-tab ${profileTab === 'stats' ? 'active' : ''}`}
+                onClick={() => setProfileTab('stats')}
+              >
+                Statistiques
+              </button>
+              <button 
+                className={`profile-tab ${profileTab === 'password' ? 'active' : ''}`}
+                onClick={() => setProfileTab('password')}
+              >
+                Mot de passe
+              </button>
+            </div>
+            
+            {profileTab === 'info' ? (
               <form onSubmit={handleProfileUpdate} className="profile-form">
                 <div className="form-group">
                   <label>Prénom</label>
@@ -415,49 +462,100 @@ function EtudiantDashboard() {
                   />
                 </div>
                 <div className="form-actions">
-                  <button type="button" onClick={() => setEditMode(false)} className="cancel-btn">
-                    Annuler
-                  </button>
                   <button type="submit" className="save-btn">
                     Enregistrer
                   </button>
                 </div>
               </form>
-            ) : (
-              <div className="profile-info">
-                <div className="info-item">
-                  <FiUser className="info-icon" />
-                  <span>{user?.prenom} {user?.nom}</span>
-                </div>
-                <div className="info-item">
-                  <FiMail className="info-icon" />
-                  <span>{user?.email}</span>
-                </div>
-                <div className="progress-summary">
-                  <h4>Progression globale</h4>
-                  <div className="progress-item">
-                    <span>Cours suivis:</span>
-                    <span>{progressStats.totalCourses}</span>
+            ) : profileTab === 'stats' ? (
+              <div className="stats-container">
+                <div className="stat-card">
+                  <FiBook className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Cours suivis</h4>
+                    <p>{progressStats.totalCourses}</p>
                   </div>
-                  <div className="progress-item">
-                    <span>Cours terminés:</span>
-                    <span>{progressStats.completedCourses}</span>
-                  </div>
-                  {progressStats.averageScore && (
-                    <div className="progress-item">
-                      <span>Moyenne des quiz:</span>
-                      <span>{progressStats.averageScore}%</span>
-                    </div>
-                  )}
                 </div>
-                <button 
-                  onClick={() => setEditMode(true)} 
-                  className="edit-btn"
-                >
-                  <FiEdit style={{ marginRight: '5px' }} />
-                  Modifier le profil
-                </button>
+                <div className="stat-card">
+                  <FiAward className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Cours terminés</h4>
+                    <p>{progressStats.completedCourses}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <FiBarChart2 className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Moyenne des quiz</h4>
+                    <p>{progressStats.averageScore ? `${progressStats.averageScore}%` : 'N/A'}</p>
+                  </div>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={handlePasswordUpdate} className="password-form">
+                <div className="form-group">
+                  <label>
+                    <FiLock /> Ancien mot de passe
+                  </label>
+                  <div className="password-input">
+                    <input
+                      type={showPassword.current ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => togglePasswordVisibility('current')}
+                      className="toggle-password"
+                    >
+                      {showPassword.current ? <FiEyeOff /> : <FiEye />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>
+                    <FiLock /> Nouveau mot de passe
+                  </label>
+                  <div className="password-input">
+                    <input
+                      type={showPassword.new ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => togglePasswordVisibility('new')}
+                      className="toggle-password"
+                    >
+                      {showPassword.new ? <FiEyeOff /> : <FiEye />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>
+                    <FiLock /> Confirmer le mot de passe
+                  </label>
+                  <div className="password-input">
+                    <input
+                      type={showPassword.confirm ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => togglePasswordVisibility('confirm')}
+                      className="toggle-password"
+                    >
+                      {showPassword.confirm ? <FiEyeOff /> : <FiEye />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="save-btn">
+                    Modifier le mot de passe
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </Modal>

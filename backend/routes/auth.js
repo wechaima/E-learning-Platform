@@ -8,6 +8,7 @@ import {
   forgotPassword,
   verifyResetCode,
   resetPassword,
+  changePassword,
   
  
 } from '../controllers/authController.js';
@@ -22,11 +23,12 @@ const router = Router();
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
-
+changePassword
 // Admin-only routes
 router.post('/formateurs', authenticate, isAdminOrSuperAdmin, createFormateur);
 router.get('/profile', authenticate, getProfile);
 router.put('/profile', authenticate, updateProfile);
+router.put('/change-password', authenticate, changePassword);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-reset-code', verifyResetCode);
 router.post('/reset-password', resetPassword);

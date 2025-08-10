@@ -10,7 +10,7 @@ import courseRoutes from './routes/courseRoutes.js';
 import adminRoutes from './routes/admin.js';
 import progressRoutes from './routes/progress.js';
 
-
+import statsRoutes from './routes/stats.js';
 import userRoutes from './routes/user.js';
 
 dotenv.config();
@@ -19,8 +19,9 @@ const app = express();
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
 
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/formateurs', authRoutes );
@@ -32,6 +33,7 @@ app.use('/api/users', courseRoutes);
 // Après les autres app.use()
 app.use('/api/progress', progressRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/stats', statsRoutes);
 // Gestion des erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import './auth.css';
 import { FaExclamationTriangle, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft } from 'react-icons/fa';
-
+import logo from '../assets/logo.png';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,7 +53,9 @@ export default function Login() {
     <div className="auth-container">
       <header className="auth-header">
         <div className="header-content">
-          <h1 className="logo">EduPlatform</h1>
+         <Link to="/" className="logo-link">
+  <img src={logo} alt="EduPlatform Logo" className="logo-image" />
+</Link>
         </div>
       </header>
 

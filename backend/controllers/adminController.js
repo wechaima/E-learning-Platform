@@ -5,12 +5,63 @@ import bcrypt from 'bcryptjs';
 // controllers/authController.js
 export const createAdmin = async (req, res) => {
   try {
-    const { nom, prenom, email, password } = req.body;
+    const { nom, prenom, email, password, confirmPassword } = req.body;
+
+    // Validation des champs
+    if (!nom || !prenom || !email || !password || !confirmPassword) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Tous les champs sont obligatoires' 
+      });
+    }
+
+    // Validation du nom et prénom (doivent commencer par une lettre)
+    const nameRegex = /^[a-zA-Z]/;
+    if (!nameRegex.test(nom) ){
+      return res.status(400).json({ 
+        success: false,
+        message: 'Le nom doit commencer par une lettre' 
+      });
+    }
+    if (!nameRegex.test(prenom)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Le prénom doit commencer par une lettre' 
+      });
+    }
+
+    // Validation de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Format d\'email invalide' 
+      });
+    }
 
     // Vérifier si l'email existe déjà
     const exists = await User.findOne({ email });
     if (exists) {
-      return res.status(400).json({ message: 'Email déjà utilisé' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email déjà utilisé' 
+      });
+    }
+
+    // Validation du mot de passe
+    if (password !== confirmPassword) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Les mots de passe ne correspondent pas' 
+      });
+    }
+
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.{8,})/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule et un caractère spécial' 
+      });
     }
 
     // Créer le nouvel admin

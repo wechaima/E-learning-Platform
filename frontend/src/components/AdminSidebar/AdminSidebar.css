@@ -142,4 +142,12 @@
   .close-sidebar {
     display: block;
   }
+}.logo-image {
+  height: 80px;      /* Hauteur fixe */
+  width: 120px;       /* Largeur ajustée automatiquement pour garder les proportions */
+}
+
+/* Optionnel : effet d'agrandissement au survol */
+.logo-image:hover {
+  transform: scale(1.05);
 }
