@@ -339,7 +339,7 @@ function AdminDashboard() {
       <div className="admin-main-content">
         <header className="admin-header">
           <h1 className="admin-title">
-            {activeTab === 'Tableau de bord' ? 'Tableau de bord' :
+            {activeTab === 'dashboard' ? 'Tableau de bord' :
              activeTab === 'formateurs' ? 'Gestion des formateurs' : 
              activeTab === 'etudiants' ? 'Liste des étudiants' : 
              'Gestion des admins'}

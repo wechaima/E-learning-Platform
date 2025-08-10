@@ -23,13 +23,12 @@ import Modal from 'react-modal';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
-import CourseForm from '../../components/course/CourseForm';
+import CourseEditor from '../../components/course/CourseEditor';
 
+import logo from '../../assets/logo.png';
 Modal.setAppElement('#root');
 
 function FormateurDashboard() {
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [pendingUpdate, setPendingUpdate] = useState(null);
   const [allCourses, setAllCourses] = useState([]);
   const [myCourses, setMyCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,7 +142,6 @@ function FormateurDashboard() {
     e.preventDefault();
     
     try {
-      // Validation côté client
       if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
         return toast.error('Tous les champs sont obligatoires');
       }
@@ -237,32 +235,59 @@ function FormateurDashboard() {
     }
   };
 
-  const handleEditCourse = async (courseData) => {
-    try {
-      const response = await api.put(`/courses/${selectedCourse._id}`, courseData, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
+const handleEditCourse = async (updatedCourseData) => {
+  try {
+    // Préparation des données pour l'API
+    const dataToSend = {
+      title: updatedCourseData.title,
+      description: updatedCourseData.description,
+      imageUrl: updatedCourseData.imageUrl,
+      category: updatedCourseData.category,
+      chapters: updatedCourseData.chapters.map(chapter => ({
+        title: chapter.title,
+        order: chapter.order,
+        sections: chapter.sections.map(section => ({
+          title: section.title,
+          content: section.content,
+          videoUrl: section.videoUrl,
+          order: section.order,
+          duration: section.duration
+        })),
+        quiz: {
+          passingScore: chapter.quiz.passingScore,
+          questions: chapter.quiz.questions.map(question => ({
+            text: question.text,
+            options: question.options,
+            correctOption: question.correctOption,
+            explanation: question.explanation,
+            points: question.points
+          }))
         }
-      });
+      }))
+    };
 
-      if (response.data.success) {
-        toast.success('Cours mis à jour avec succès!');
-        const courseResponse = await api.get(`/courses/${selectedCourse._id}?populate=createdBy,chapters.sections,chapters.quiz.questions`);
-        const updatedCourse = courseResponse.data.data;
-
-        setAllCourses(prev =>
-          prev.map(course => course._id === updatedCourse._id ? updatedCourse : course)
-        );
-        setMyCourses(prev =>
-          prev.map(course => course._id === updatedCourse._id ? updatedCourse : course)
-        );
-        setShowEditCourseModal(false);
-        setShowCourseDetailModal(false);
+    const response = await api.put(`/courses/${selectedCourse._id}`, dataToSend, {
+      headers: {
+        'Authorization': `Bearer ${user.token}`
       }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur lors de la modification du cours');
+    });
+
+    if (response.data.success) {
+      toast.success('Cours mis à jour avec succès!');
+      // Recharger les données mises à jour
+      const courseResponse = await api.get(
+        `/courses/${selectedCourse._id}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
+      );
+      
+      setAllCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
+      setMyCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
+      setShowEditCourseModal(false);
     }
-  };
+  } catch (err) {
+    console.error('Erreur complète:', err.response?.data || err);
+    toast.error(err.response?.data?.message || 'Échec de la mise à jour du cours');
+  }
+};
 
   const handleDeleteCourse = async () => {
     try {
@@ -283,21 +308,46 @@ function FormateurDashboard() {
       toast.error(err.response?.data?.message || 'Erreur lors de la suppression du cours');
     }
   };
-
-  const handleViewCourseDetails = async (courseId) => {
-    try {
-      const response = await api.get(`/courses/${courseId}?populate=createdBy,chapters.sections,chapters.quiz.questions`, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-      setSelectedCourse(response.data.data);
-      setShowCourseDetailModal(true);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur lors du chargement des détails du cours');
+const handleViewCourseDetails = async (courseId) => {
+  try {
+    const response = await api.get(`/courses/${courseId}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`);
+    
+    if (!response.data.data) {
+      throw new Error("Structure de données incorrecte");
     }
-  };
 
+    const courseData = response.data.data;
+    
+    // Formatage complet avec vérification des options
+    const formattedCourse = {
+      ...courseData,
+      chapters: (courseData.chapters || []).map((chapter, chapterIndex) => ({
+        ...chapter,
+        sections: chapter.sections || [],
+        quiz: chapter.quiz ? {
+          ...chapter.quiz,
+          questions: (chapter.quiz.questions || []).map(question => ({
+            ...question,
+            // S'assurer que options est un tableau avec 4 éléments
+            options: Array.isArray(question.options) && question.options.length > 0 
+              ? question.options 
+              : ['', '', '', '']
+          }))
+        } : {
+          passingScore: 70,
+          questions: []
+        }
+      }))
+    };
+
+    console.log('Cours formaté avec options:', formattedCourse);
+    setSelectedCourse(formattedCourse);
+    setShowCourseDetailModal(true);
+  } catch (err) {
+    console.error('Erreur:', err);
+    toast.error('Erreur lors du chargement des détails du cours');
+  }
+};
   const filteredCourses = activeTab === 'all'
     ? allCourses.filter((course) =>
         course.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -311,7 +361,7 @@ function FormateurDashboard() {
       <ToastContainer />
       <div className="sidebar">
         <div className="sidebar-header">
-          <h2>EduPlatform</h2>
+         <img src={logo} alt="EduPlatform Logo" className="logo-image" />
         </div>
         <nav className="sidebar-nav">
           <button
@@ -386,14 +436,6 @@ function FormateurDashboard() {
             Ajouter un cours
           </button>
         </div>
-
-        {showConfirmationModal && (
-          <ConfirmationModal
-            message="Êtes-vous sûr de vouloir modifier votre profil ?"
-            onConfirm={confirmProfileUpdate}
-            onCancel={() => setShowConfirmationModal(false)}
-          /> 
-        )}
 
         <Modal
           isOpen={showProfileModal}
@@ -568,28 +610,24 @@ function FormateurDashboard() {
           </div>
         </Modal>
 
-        {/* Les autres modals (création/édition/suppression de cours) restent inchangés */}
         <Modal
           isOpen={showAddCourseModal}
           onRequestClose={() => setShowAddCourseModal(false)}
           className="course-modal"
           overlayClassName="course-overlay"
+          style={{
+            content: {
+              width: '90%',
+              height: '90%',
+              margin: 'auto',
+              padding: '0'
+            }
+          }}
         >
-          <div className="course-modal-content">
-            <div className="course-modal-header">
-              <h3>Créer un nouveau cours</h3>
-              <button 
-                onClick={() => setShowAddCourseModal(false)}
-                className="close-button"
-              >
-                &times;
-              </button>
-            </div>
-            <CourseForm 
-              onSubmit={handleCreateCourse} 
-              onCancel={() => setShowAddCourseModal(false)}
-            />
-          </div>
+          <CourseEditor 
+            onSubmit={handleCreateCourse} 
+            onCancel={() => setShowAddCourseModal(false)}
+          />
         </Modal>
 
         <Modal
@@ -610,7 +648,7 @@ function FormateurDashboard() {
             </div>
             {selectedCourse && (
               <div className="course-details">
-                <p><strong>Description:</strong> {selectedCourse.description}</p>
+                <strong>Description:</strong> {selectedCourse.description}
                 <h4>Chapitres</h4>
                 {selectedCourse.chapters?.length > 0 ? (
                   <ul>
@@ -625,6 +663,12 @@ function FormateurDashboard() {
                               </li>
                             ))}
                           </ul>
+                        )}
+                        {chapter.quiz && (
+                          <div className="quiz-info">
+                            <p>Quiz: {chapter.quiz.questions?.length || 0} questions</p>
+                            <p>Score de passage: {chapter.quiz.passingScore || 70}%</p>
+                          </div>
                         )}
                       </li>
                     ))}
@@ -662,29 +706,29 @@ function FormateurDashboard() {
           </div>
         </Modal>
 
-        <Modal
-          isOpen={showEditCourseModal}
-          onRequestClose={() => setShowEditCourseModal(false)}
-          className="course-modal"
-          overlayClassName="course-overlay"
-        >
-          <div className="course-modal-content">
-            <div className="course-modal-header">
-              <h3>Modifier le cours</h3>
-              <button 
-                onClick={() => setShowEditCourseModal(false)}
-                className="close-button"
-              >
-                &times;
-              </button>
-            </div>
-            <CourseForm 
-              onSubmit={handleEditCourse} 
-              onCancel={() => setShowEditCourseModal(false)}
-              initialData={selectedCourse}
-            />
-          </div>
-        </Modal>
+      <Modal
+  isOpen={showEditCourseModal}
+  onRequestClose={() => setShowEditCourseModal(false)}
+  className="course-modal"
+  overlayClassName="course-overlay"
+  style={{
+    content: {
+      width: '90%',
+      height: '90%',
+      margin: 'auto',
+      padding: '0'
+    }
+  }}
+>
+  <CourseEditor 
+    onSubmit={handleEditCourse} 
+    onCancel={() => {
+      setShowEditCourseModal(false);
+      setShowCourseDetailModal(true);
+    }}
+    initialData={selectedCourse}
+  />
+</Modal>
 
         <Modal
           isOpen={showDeleteConfirmationModal}

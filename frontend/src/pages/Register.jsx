@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import './auth.css';
 import { FaExclamationTriangle, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaUser, FaEnvelope, FaLock } from 'react-icons/fa';
-
+import logo from '../assets/logo.png';
 export default function Register() {
   const [formData, setFormData] = useState({
     nom: '',
@@ -40,7 +40,9 @@ export default function Register() {
       <header className="auth-header">
         <div className="header-content">
           
-          <h1 className="logo">EduPlatform</h1>
+          <Link to="/" className="logo-link">
+  <img src={logo} alt="EduPlatform Logo" className="logo-image" />
+</Link>
         </div>
       </header>
 

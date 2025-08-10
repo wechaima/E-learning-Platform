@@ -1,7 +1,6 @@
 .detail-course-container {
   display: flex;
   min-height: 100vh;
-
 }
 
 .course-sidebar {
@@ -59,9 +58,7 @@
 .chapters-list {
   list-style: none;
   padding: 0;
-  
 }
-
 
 .chapter {
   margin-bottom: 0.5rem;
@@ -169,6 +166,33 @@
 
 .text-content {
   line-height: 1.6;
+  padding: 20px;
+  font-size: 16px;
+}
+
+.text-content p {
+  margin-bottom: 15px;
+}
+
+.text-content blockquote {
+  border-left: 4px solid #ddd;
+  padding-left: 15px;
+  margin-left: 0;
+  color: #666;
+}
+
+.text-content ul, .text-content ol {
+  padding-left: 20px;
+  margin-bottom: 15px;
+}
+
+.text-content li {
+  margin-bottom: 5px;
+}
+
+.text-content strong {
+  font-weight: bold;
+  color: #333;
 }
 
 .quiz-content {
@@ -288,7 +312,8 @@
 
 .retry-button:hover {
   background: #0b7dda;
-}/* Style pour le bouton de retour */
+}
+
 .back-button {
   display: flex;
   align-items: center;

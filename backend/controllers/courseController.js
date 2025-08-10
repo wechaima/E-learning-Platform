@@ -57,29 +57,32 @@ export const createCourse = async (req, res) => {
 
         // 2.3 Traitement du quiz (si existant)
         if (chapterData.quiz && chapterData.quiz.questions) {
-          // D'abord créer le quiz pour avoir son ID
+          // Création du quiz
           const newQuiz = new Quiz({
             passingScore: chapterData.quiz.passingScore || 70,
             chapterId: newChapter._id
           });
-          const savedQuiz = await newQuiz.save();
+          await newQuiz.save();
 
-          // Ensuite créer les questions avec le quizId
+          // Création des questions
           const questions = await Question.insertMany(
             chapterData.quiz.questions.map(question => ({
               text: question.text,
-              options: question.options,
+              options: question.options.map((opt, index) => ({
+                text: opt,
+                isCorrect: index === question.correctOption
+              })),
               explanation: question.explanation,
-              quizId: savedQuiz._id // Ajout du quizId requis
+              quizId: newQuiz._id
             }))
           );
 
-          // Mettre à jour le quiz avec les questions
-          savedQuiz.questions = questions.map(q => q._id);
-          await savedQuiz.save();
+          // Mise à jour du quiz avec les questions
+          newQuiz.questions = questions.map(q => q._id);
+          await newQuiz.save();
 
           // Lier le quiz au chapitre
-          newChapter.quiz = savedQuiz._id;
+          newChapter.quiz = newQuiz._id;
           await newChapter.save();
         }
 

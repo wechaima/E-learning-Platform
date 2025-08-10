@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import './Header.css';
 import { useNavigate } from 'react-router-dom'; 
 import { FaSearch } from 'react-icons/fa';
-
+import logo from '../../assets/logo.png'; //
 const Header = ({ user, onLogout }) => {
   const navigate = useNavigate();
 
@@ -15,7 +15,8 @@ const Header = ({ user, onLogout }) => {
     <header className="main-header">
       <div className="header-container">
         <Link to="/" className="logo-link">
-          <span className="logo-text">EduPlatform</span>
+          {/* Remplacement du texte par l'image du logo */}
+          <img src={logo} alt="EduPlatform Logo" className="logo-image" />
         </Link>
         
         <div className="search-container">

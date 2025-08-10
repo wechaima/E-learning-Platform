@@ -130,4 +130,13 @@
     font-size: 0.7rem;
     height: 28px; /* Hauteur réduite sur mobile */
   }
+}.logo-image {
+  height: 70px; /* Augmenté de 40px à 50px */
+  width: auto;
+  transition: transform 0.3s ease; /* Animation optionnelle pour un effet au hover */
+}
+
+/* Optionnel : effet d'agrandissement au survol */
+.logo-image:hover {
+  transform: scale(1.05);
 }

@@ -9,7 +9,7 @@ import {
   FaChartBar // Ajoutez cette importation
 } from 'react-icons/fa';
 import './AdminSidebar.css';
-
+import logo from '../../assets/logo2.png';
 const AdminSidebar = ({ 
   activeTab, 
   setActiveTab, 
@@ -20,7 +20,7 @@ const AdminSidebar = ({
   return (
     <aside className={`admin-sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-header">
-        <div className="sidebar-logo">EduAdmin</div>
+      <img src={logo} alt="EduPlatform Logo" className="logo-image" />
         <button 
           className="close-sidebar"
           onClick={onClose}

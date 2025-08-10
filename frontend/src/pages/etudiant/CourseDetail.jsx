@@ -29,7 +29,6 @@ const CourseDetail = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Fonction pour retourner au tableau de bord
   const handleBackToDashboard = () => {
     navigate('/etudiant');
   };
@@ -93,13 +92,11 @@ const CourseDetail = () => {
     try {
       const chapterId = course.chapters[chapterIndex]._id;
       const sectionId = course.chapters[chapterIndex].sections[sectionIndex]._id;
-      console.log('Envoi de la progression:', { chapterId, sectionId });
-
       await api.post(
         `/courses/${id}/sections`,
         { chapterId, sectionId },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );console.log('Envoi de la progression:', { chapterId, sectionId });
+      );
 
       const response = await api.get(`/courses/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
@@ -339,18 +336,20 @@ const CourseDetail = () => {
         ) : currentContent.type === 'section' && currentSection ? (
           <div className="section-content">
             <h3 className="section-title">{currentSection.title}</h3>
-           {currentSection.videoUrl?.startsWith('http') && (
-  <div className="video-container">
-    <iframe
-      src={currentSection.videoUrl}
-      title={currentSection.title}
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowFullScreen
-    />
-  </div>
-)}
-
-            <div className="text-content">{currentSection.content || 'Aucun contenu disponible'}</div>
+            {currentSection.videoUrl?.startsWith('http') && (
+              <div className="video-container">
+                <iframe
+                  src={currentSection.videoUrl}
+                  title={currentSection.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+            <div 
+              className="text-content" 
+              dangerouslySetInnerHTML={{ __html: currentSection.content || 'Aucun contenu disponible' }}
+            />
           </div>
         ) : currentContent.type === 'quiz' && currentQuiz ? (
           <div className="quiz-content">
@@ -401,22 +400,22 @@ const CourseDetail = () => {
                   handleQuizSubmit();
                 }}
               >
-                {currentQuiz.questions.map((question, qIndex) => (
-                  <div key={question._id || `question-${qIndex}`} className="quiz-question">
-                    <h4>{qIndex + 1}. {question.text}</h4>
-                    {question.options.map((option, oIndex) => (
-                      <label key={oIndex} className="quiz-option">
-                        <input
-                          type={question.multipleAnswers ? "checkbox" : "radio"}
-                          name={question._id}
-                          checked={(quizAnswers[question._id] || []).includes(oIndex)}
-                          onChange={() => handleAnswerChange(question._id, oIndex, question.multipleAnswers)}
-                        />
-                        {option.text}
-                      </label>
-                    ))}
-                  </div>
-                ))}
+               {currentQuiz.questions.map((question, qIndex) => (
+  <div key={question._id || `question-${qIndex}`} className="quiz-question">
+    <h4>{qIndex + 1}. {question.text || 'Question sans texte'}</h4>
+    {question.options.map((option, oIndex) => (
+      <label key={oIndex} className="quiz-option">
+        <input
+          type={question.multipleAnswers ? "checkbox" : "radio"}
+          name={question._id}
+          checked={(quizAnswers[question._id] || []).includes(oIndex)}
+          onChange={() => handleAnswerChange(question._id, oIndex, question.multipleAnswers)}
+        />
+        {option.text || option} {/* Modification ici pour gérer les options qui pourraient être des objets */}
+      </label>
+    ))}
+  </div>
+))}
                 <button type="submit" className="quiz-submit-button">
                   Soumettre
                 </button>
