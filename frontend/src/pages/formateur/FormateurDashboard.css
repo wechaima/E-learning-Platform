@@ -107,14 +107,14 @@
 
 .user-role {
   font-size: 0.8rem;
-  color: #7e57c2;
-  background: #ede7f6;
+  color: white;
+  background: #4f46e5;
   padding: 2px 8px;
   border-radius: 10px;
 }
 
 .profile-button {
-  background: #7e57c2;
+  background: #4f46e5;
   color: white;
   border: none;
   width: 40px;
@@ -128,7 +128,7 @@
 }
 
 .profile-button:hover {
-  background: #6d4caf;
+  background: #4f46e5;
 }
 
 /* Actions Bar Styles */
@@ -142,7 +142,7 @@
   display: flex;
   align-items: center;
   padding: 10px 20px;
-  background-color: #7e57c2;
+  background-color: #4f46e5;
   color: white;
   border: none;
   border-radius: 6px;
@@ -509,14 +509,15 @@
 }
 
 .delete-btn {
-  background-color: #f44336;
+  background-color: red;
   color: white;
+  font-weight: 100;
 }
 
 .confirmation-modal {
   max-width: 400px;
   margin: 0 auto;
-  top: 50%;
+  top: 10%;
   transform: translateY(-50%);
 }
 

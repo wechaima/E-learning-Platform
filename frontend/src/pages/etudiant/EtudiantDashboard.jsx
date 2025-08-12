@@ -24,7 +24,7 @@ import Modal from 'react-modal';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
-
+import logo from '../../assets/logo2.png';
 Modal.setAppElement('#root');
 
 function EtudiantDashboard() {
@@ -320,7 +320,7 @@ function EtudiantDashboard() {
       />
       <div className="sidebar">
         <div className="sidebar-header">
-          <h2>EduPlatform</h2>
+         <img src={logo} alt="EduPlatform Logo" className="logo-image" />
         </div>
         <nav className="sidebar-nav">
           <button

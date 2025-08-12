@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiPlus, FiTrash2, FiChevronDown, FiMenu, FiArrowLeft } from 'react-icons/fi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@wiris/mathtype-ckeditor5';
-
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import './CourseEditor.css';
 
 function CourseEditor({ onSubmit, onCancel, initialData }) {
@@ -25,10 +24,11 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
 
   const [editorContents, setEditorContents] = useState({});
 
-  useEffect(() => {
+ useEffect(() => {
     if (initialData) {
       const formattedData = {
         ...initialData,
+        description: initialData.description || '', // Ensure description is set
         chapters: (initialData.chapters || []).map((chapter, chapterIndex) => ({
           ...chapter,
           _id: chapter._id || `chapter-${Date.now()}-${chapterIndex}`,
@@ -48,9 +48,13 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
               _id: question._id || `question-${Date.now()}-${qIndex}`,
               text: question.text || '',
               options: question.options || ['', '', '', ''],
-              correctOption: question.correctOption || 0,
+              correctOption: Array.isArray(question.correctOption) 
+                ? question.correctOption 
+                : (question.correctOption != null ? [question.correctOption] : []),
               explanation: question.explanation || '',
-              multipleAnswers: question.multipleAnswers || false
+              multipleAnswers: Array.isArray(question.correctOption) 
+                ? question.correctOption.length > 1 
+                : false
             }))
           } : {
             passingScore: 70,
@@ -62,7 +66,7 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
       const contents = {};
       formattedData.chapters.forEach((chapter, chapIdx) => {
         chapter.sections.forEach((section, secIdx) => {
-          contents[`${chapIdx}-${secIdx}`] = section.content;
+          contents[`${chapIdx}-${secIdx}`] = section.content || '';
         });
       });
 
@@ -70,7 +74,6 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
       setCourseData(formattedData);
     }
   }, [initialData]);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCourseData({ ...courseData, [name]: value });
@@ -506,21 +509,33 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
             <div className="form-group">
               <label>Contenu</label>
               <CKEditor
-  editor={ClassicEditor}
-  data={courseData.description}
-  config={{
-    toolbar: [
-      'heading', '|', 'bold', 'italic', 'link', 
-      'bulletedList', 'numberedList', '|',
-      'MathType', 'ChemType',  // ✅ Math buttons
-      'undo', 'redo'
-    ]
-  }}
-  onChange={(event, editor) => {
-    const data = editor.getData();
-    setCourseData({ ...courseData, description: data });
-  }}
-/>
+                key={`editor-${selectedItem.chapterIndex}-${selectedItem.sectionIndex}`}
+                editor={ClassicEditor}
+                data={editorContents[`${selectedItem.chapterIndex}-${selectedItem.sectionIndex}`] || ''}
+                onChange={(event, editor) => {
+                  const data = editor.getData();
+                  handleSectionChange(
+                    selectedItem.chapterIndex,
+                    selectedItem.sectionIndex,
+                    'content',
+                    data
+                  );
+                }}
+                onBlur={(event, editor) => {
+                  const data = editor.getData();
+                  handleSectionChange(
+                    selectedItem.chapterIndex,
+                    selectedItem.sectionIndex,
+                    'content',
+                    data
+                  );
+                }}
+                config={{
+                  autoParagraph: false,
+                  fillEmptyBlocks: false,
+                  removePlugins: ['Title']
+                }}
+              />
             </div>
 
             <div className="form-group">

@@ -25,7 +25,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
 import CourseEditor from '../../components/course/CourseEditor';
 
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo2.png';
 Modal.setAppElement('#root');
 
 function FormateurDashboard() {
@@ -308,6 +308,7 @@ const handleEditCourse = async (updatedCourseData) => {
       toast.error(err.response?.data?.message || 'Erreur lors de la suppression du cours');
     }
   };
+// Updated handleViewCourseDetails function
 const handleViewCourseDetails = async (courseId) => {
   try {
     const response = await api.get(`/courses/${courseId}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`);
@@ -318,22 +319,32 @@ const handleViewCourseDetails = async (courseId) => {
 
     const courseData = response.data.data;
     
-    // Formatage complet avec vérification des options
     const formattedCourse = {
       ...courseData,
+      description: courseData.description || '', // Explicitly include description
+      category: courseData.category || '',
       chapters: (courseData.chapters || []).map((chapter, chapterIndex) => ({
         ...chapter,
-        sections: chapter.sections || [],
+        sections: (chapter.sections || []).map((section) => ({
+          ...section,
+          content: section.content || '', // Explicitly include content
+          videoUrl: section.videoUrl || '',
+          duration: section.duration || 0
+        })),
         quiz: chapter.quiz ? {
           ...chapter.quiz,
           questions: (chapter.quiz.questions || []).map(question => ({
             ...question,
-            // S'assurer que options est un tableau avec 4 éléments
-            options: Array.isArray(question.options) && question.options.length > 0 
-              ? question.options 
-              : ['', '', '', '']
+            options: question.options.map(o => o.text),
+            correctOption: question.options.reduce((acc, opt, idx) => {
+              if (opt.isCorrect) acc.push(idx);
+              return acc;
+            }, []),
+            multipleAnswers: question.options.filter(opt => opt.isCorrect).length > 1,
+            explanation: question.explanation || '',
+            points: question.points || 1
           }))
-        } : {
+        }: {
           passingScore: 70,
           questions: []
         }

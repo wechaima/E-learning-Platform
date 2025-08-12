@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   FaUsers, FaChalkboardTeacher, FaPlus, FaBars, 
   FaEdit, FaTrash, FaSignOutAlt, FaUserShield, FaBell, FaUserCircle,
-  FaChartBar, FaBook
+  FaChartBar, FaBook, FaChartLine, FaCheckCircle, FaBookOpen,
+  FaUserGraduate, FaGraduationCap, FaUserFriends, FaEnvelope, FaSearch
 } from 'react-icons/fa';
 import { Bar, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
@@ -17,7 +18,6 @@ import FormateurFormModal from './FormateurFormModal.jsx';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal.jsx';
 import ProfileModal from './ProfileModal.jsx';
 
-// Enregistrer les composants Chart.js
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 function AdminDashboard() {
@@ -40,8 +40,10 @@ function AdminDashboard() {
     abonnements: 0
   });
   const navigate = useNavigate();
-
-  // États pour les confirmations
+  const [formateurDetails, setFormateurDetails] = useState(null);
+  const [etudiantDetails, setEtudiantDetails] = useState(null);
+  const [showFormateurDetails, setShowFormateurDetails] = useState(false);
+  const [showEtudiantDetails, setShowEtudiantDetails] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
@@ -51,6 +53,12 @@ function AdminDashboard() {
   const [showSaveFormateurConfirmation, setShowSaveFormateurConfirmation] = useState(false);
   const [formateurDataToSave, setFormateurDataToSave] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  
+  // États pour la recherche
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredFormateurs, setFilteredFormateurs] = useState([]);
+  const [filteredEtudiants, setFilteredEtudiants] = useState([]);
+  const [filteredAdmins, setFilteredAdmins] = useState([]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -75,6 +83,30 @@ function AdminDashboard() {
     }
   }, [activeTab]);
 
+  // Effet pour filtrer les données
+  useEffect(() => {
+    if (activeTab === 'formateurs') {
+      const filtered = formateurs.filter(formateur => 
+        `${formateur.prenom} ${formateur.nom}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formateur.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (formateur.specialite && formateur.specialite.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredFormateurs(filtered);
+    } else if (activeTab === 'etudiants') {
+      const filtered = etudiants.filter(etudiant => 
+        `${etudiant.prenom} ${etudiant.nom}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        etudiant.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredEtudiants(filtered);
+    } else if (activeTab === 'admins') {
+      const filtered = admins.filter(admin => 
+        `${admin.prenom} ${admin.nom}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        admin.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredAdmins(filtered);
+    }
+  }, [searchTerm, formateurs, etudiants, admins, activeTab]);
+
   const fetchStats = async () => {
     try {
       const res = await api.get('/stats/dashboard-stats');
@@ -88,19 +120,21 @@ function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      let data = [];
       if (activeTab === 'formateurs') {
         const res = await api.get('/formateur');
-        data = res.data.data || res.data || [];
+        const data = res.data.data || res.data || [];
         setFormateurs(data);
+        setFilteredFormateurs(data);
       } else if (activeTab === 'etudiants') {
         const res = await api.get('/etudiants');
-        data = res.data.data || res.data || [];
+        const data = res.data.data || res.data || [];
         setEtudiants(data);
+        setFilteredEtudiants(data);
       } else if (activeTab === 'admins') {
         const res = await api.get('/auth/admins');
-        data = res.data.data || res.data || [];
+        const data = res.data.data || res.data || [];
         setAdmins(data);
+        setFilteredAdmins(data);
       }
     } catch (err) {
       showError(err.response?.data?.message || 'Erreur lors du chargement des données');
@@ -110,7 +144,55 @@ function AdminDashboard() {
     }
   };
 
-  // Configuration des graphiques
+  const fetchFormateurDetails = async (formateurId) => {
+    try {
+      const res = await api.get(`/stats/formateurs/${formateurId}/stats`);
+      setFormateurDetails(res.data.data);
+      setShowFormateurDetails(true);
+    } catch (err) {
+      console.error('Erreur complète:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      showError(err.response?.data?.message || 'Erreur de chargement');
+    }
+  };
+
+  const fetchEtudiantDetails = async (email) => {
+    if (!email) {
+      showError("Email manquant");
+      return;
+    }
+
+    try {
+      const userRes = await api.get(`/user/by-email/${encodeURIComponent(email)}`);
+      
+      if (!userRes.data.success || !userRes.data.data?._id) {
+        throw new Error(userRes.data.message || 'Utilisateur non trouvé');
+      }
+
+      const statsRes = await api.get(`/stats/etudiants/${userRes.data.data._id}/stats`);
+      
+      if (!statsRes.data.success) {
+        throw new Error(statsRes.data.message || 'Statistiques non disponibles');
+      }
+
+      setEtudiantDetails({
+        ...statsRes.data.data,
+        email: email
+      });
+      setShowEtudiantDetails(true);
+
+    } catch (err) {
+      console.error('Erreur complète:', {
+        message: err.message,
+        response: err.response?.data
+      });
+      showError(err.message || 'Erreur de chargement');
+    }
+  };
+
   const barChartData = {
     labels: ['Étudiants', 'Formateurs', 'Admins', 'Cours', 'Abonnements'],
     datasets: [
@@ -200,6 +282,7 @@ function AdminDashboard() {
     try {
       const res = await api.post('/auth/admins', formData);
       setAdmins(prev => [...prev, res.data]);
+      setFilteredAdmins(prev => [...prev, res.data]);
       setShowAdminModal(false);
       showSuccess('Admin ajouté avec succès');
       fetchData();
@@ -212,6 +295,9 @@ function AdminDashboard() {
     try {
       const res = await api.put(`/auth/admins/${currentAdmin._id}`, formDataToSave);
       setAdmins(prev => 
+        prev.map(a => a._id === currentAdmin._id ? res.data : a)
+      );
+      setFilteredAdmins(prev => 
         prev.map(a => a._id === currentAdmin._id ? res.data : a)
       );
       if (currentAdmin._id === userProfile?.id) {
@@ -233,6 +319,7 @@ function AdminDashboard() {
     try {
       await api.delete(`/auth/admins/${id}`);
       setAdmins(prev => prev.filter(a => a._id !== id));
+      setFilteredAdmins(prev => prev.filter(a => a._id !== id));
       showSuccess('Admin supprimé avec succès');
       fetchData();
     } catch (err) {
@@ -247,6 +334,7 @@ function AdminDashboard() {
     try {
       const res = await api.post('/auth/formateurs', formData);
       setFormateurs(prev => [...prev, res.data]);
+      setFilteredFormateurs(prev => [...prev, res.data]);
       setShowFormateurModal(false);
       showSuccess('Formateur ajouté avec succès');
       fetchData();
@@ -259,6 +347,9 @@ function AdminDashboard() {
     try {
       const res = await api.put(`/formateur/${currentFormateur._id}`, formateurDataToSave);
       setFormateurs(prev => 
+        prev.map(f => f._id === currentFormateur._id ? res.data : f)
+      );
+      setFilteredFormateurs(prev => 
         prev.map(f => f._id === currentFormateur._id ? res.data : f)
       );
       setShowFormateurModal(false);
@@ -277,6 +368,7 @@ function AdminDashboard() {
     try {
       await api.delete(`/formateur/${id}`);
       setFormateurs(prev => prev.filter(f => f._id !== id));
+      setFilteredFormateurs(prev => prev.filter(f => f._id !== id));
       showSuccess('Formateur supprimé avec succès');
       fetchData();
     } catch (err) {
@@ -431,10 +523,24 @@ function AdminDashboard() {
             <div className="admin-card">
               <div className="card-header">
                 <h2>
-                  {activeTab === 'formateurs' ? `Formateurs (${formateurs.length})` 
-                   : activeTab === 'etudiants' ? `Étudiants (${etudiants.length})` 
-                   : `Admins (${admins.length})`}
+                  {activeTab === 'formateurs' ? `Formateurs (${filteredFormateurs.length})` 
+                   : activeTab === 'etudiants' ? `Étudiants (${filteredEtudiants.length})` 
+                   : `Admins (${filteredAdmins.length})`}
                 </h2>
+                
+         <div class="search-container">
+  
+   
+    <input
+      type="text"
+      placeholder="Rechercher par nom..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="search-input"
+    /><button className="search-button">
+              <FaSearch />
+            </button>
+  </div>
                 {activeTab === 'formateurs' && (
                   <button 
                     onClick={() => {
@@ -494,11 +600,18 @@ function AdminDashboard() {
                     </thead>
                     <tbody>
                       {activeTab === 'formateurs' ? (
-                        formateurs.length > 0 ? (
-                          formateurs.map((formateur) => (
+                        filteredFormateurs.length > 0 ? (
+                          filteredFormateurs.map((formateur) => (
                             <tr key={formateur._id}>
                               <td>{formateur.prenom} {formateur.nom}</td>
-                              <td>{formateur.email}</td>
+                              <td>
+                                <button 
+                                  onClick={() => fetchFormateurDetails(formateur._id)}
+                                  className="email-btn"
+                                >
+                                  {formateur.email}
+                                </button>
+                              </td>
                               <td>{formateur.specialite}</td>
                               <td className="actions">
                                 <button 
@@ -524,26 +637,39 @@ function AdminDashboard() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} className="no-data">Aucun formateur disponible</td>
+                            <td colSpan={4} className="no-data">
+                              {searchTerm ? 'Aucun formateur trouvé' : 'Aucun formateur disponible'}
+                            </td>
                           </tr>
                         )
                       ) : activeTab === 'etudiants' ? (
-                        etudiants.length > 0 ? (
-                          etudiants.map((etudiant) => (
-                            <tr key={etudiant._id}>
-                              <td>{etudiant.prenom} {etudiant.nom}</td>
-                              <td>{etudiant.email}</td>
-                              <td>{new Date(etudiant.createdAt).toLocaleDateString()}</td>
-                            </tr>
-                          ))
-                        ) : (
+                        filteredEtudiants.length > 0 ? 
+                        (filteredEtudiants.map((etudiant) => (
+                          <tr key={etudiant._id}>
+                            <td>{etudiant.prenom} {etudiant.nom}</td>
+                            <td>
+                              <button 
+                                onClick={() => {
+                                  console.log('Email cliqué:', etudiant.email);
+                                  fetchEtudiantDetails(etudiant.email);
+                                }}
+                                className="email-btn"
+                              >
+                                {etudiant.email}
+                              </button>
+                            </td>
+                            <td>{new Date(etudiant.createdAt).toLocaleDateString()}</td>
+                          </tr>
+                        ))) : (
                           <tr>
-                            <td colSpan={3} className="no-data">Aucun étudiant disponible</td>
+                            <td colSpan={3} className="no-data">
+                              {searchTerm ? 'Aucun étudiant trouvé' : 'Aucun étudiant disponible'}
+                            </td>
                           </tr>
                         )
                       ) : (
-                        admins.length > 0 ? (
-                          admins.map((admin) => (
+                        filteredAdmins.length > 0 ? (
+                          filteredAdmins.map((admin) => (
                             <tr key={admin._id}>
                               <td>{admin.prenom} {admin.nom}</td>
                               <td>{admin.email}</td>
@@ -572,7 +698,9 @@ function AdminDashboard() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} className="no-data">Aucun admin disponible</td>
+                            <td colSpan={4} className="no-data">
+                              {searchTerm ? 'Aucun admin trouvé' : 'Aucun admin disponible'}
+                            </td>
                           </tr>
                         )
                       )}
@@ -628,6 +756,80 @@ function AdminDashboard() {
           onUpdateProfile={handleUpdateProfile}
           onChangePassword={handleChangePassword}
         />
+      )}
+
+      {showFormateurDetails && formateurDetails && (
+        <div className="modal-overlay">
+          <div className="details-modal">
+            <div className="modal-header">
+              <h3>
+                <FaChalkboardTeacher style={{ marginRight: '10px' }} />
+                Détails du formateur
+              </h3>
+              <button onClick={() => setShowFormateurDetails(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>
+                <strong><FaUserCircle style={{ marginRight: '8px' }} />Nom:</strong> 
+                {formateurDetails.prenom} {formateurDetails.nom}
+              </p>
+              <p>
+                <strong><FaEnvelope style={{ marginRight: '8px' }} />Email:</strong> 
+                {formateurDetails.email}
+              </p>
+              <p>
+                <strong><FaGraduationCap style={{ marginRight: '8px' }} />Spécialité:</strong> 
+                {formateurDetails.specialite}
+              </p>
+              <p>
+                <strong><FaBook style={{ marginRight: '8px' }} />Nombre de cours:</strong> 
+                {formateurDetails.courseCount}
+              </p>
+              <p>
+                <strong><FaUserFriends style={{ marginRight: '8px' }} />Nombre d'abonnés:</strong> 
+                {formateurDetails.followerCount}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEtudiantDetails && etudiantDetails && (
+        <div className="modal-overlay">
+          <div className="details-modal">
+            <div className="modal-header">
+              <h3>
+                <FaUserGraduate style={{ marginRight: '10px' }} />
+                Détails de l'étudiant
+              </h3>
+              <button onClick={() => setShowEtudiantDetails(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>
+                <strong><FaUserCircle style={{ marginRight: '8px' }} />Nom:</strong> 
+                {etudiantDetails.prenom} {etudiantDetails.nom}
+              </p>
+              <p>
+                <strong><FaEnvelope style={{ marginRight: '8px' }} />Email:</strong> 
+                {etudiantDetails.email}
+              </p>
+              <p>
+                <strong><FaBookOpen style={{ marginRight: '8px' }} />Cours suivis:</strong> 
+                {etudiantDetails.enrolledCoursesCount}
+              </p>
+              <p>
+                <strong><FaCheckCircle style={{ marginRight: '8px' }} />Cours terminés:</strong> 
+                {etudiantDetails.completedCoursesCount}
+              </p>
+              <p>
+                <strong><FaChartLine style={{ marginRight: '8px' }} />Moyenne des quiz:</strong> 
+                {etudiantDetails.averageQuizScore !== null 
+                  ? `${etudiantDetails.averageQuizScore}% (sur ${etudiantDetails.quizAttempts} quiz)` 
+                  : 'Aucun quiz complété'}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {showDeleteConfirmation && (

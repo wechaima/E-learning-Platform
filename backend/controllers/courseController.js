@@ -564,33 +564,62 @@ export const deleteCourse = async (req, res) => {
       });
     }
 
-    // Supprimer toutes les relations
-    const chapterIds = course.chapters;
-    
-    await Promise.all([
-      // Supprimer les sections
-      Section.deleteMany({ chapterId: { $in: chapterIds } }),
-      // Supprimer les quiz et questions
-      Quiz.deleteMany({ chapterId: { $in: chapterIds } }),
-      Question.deleteMany({ quizId: { $in: (await Quiz.find({ chapterId: { $in: chapterIds } })).map(q => q._id) }}),
-      // Supprimer les chapitres
-      Chapter.deleteMany({ _id: { $in: chapterIds } }),
-      // Supprimer les progressions
-      Progress.deleteMany({ courseId: id }),
-      // Finalement supprimer le cours
-      Course.deleteOne({ _id: id })
-    ]);
+    // Récupérer tous les chapitres du cours
+    const chapters = await Chapter.find({ courseId: id });
+    const chapterIds = chapters.map(chapter => chapter._id);
 
-    res.status(200).json({
-      success: true,
-      message: 'Cours supprimé avec succès',
-      data: { id }
-    });
+    // Récupérer tous les quiz des chapitres
+    const quizzes = await Quiz.find({ chapterId: { $in: chapterIds } });
+    const quizIds = quizzes.map(quiz => quiz._id);
+
+    // Récupérer toutes les sections des chapitres
+    const sections = await Section.find({ chapterId: { $in: chapterIds } });
+    const sectionIds = sections.map(section => section._id);
+
+    // Suppression en cascade avec transactions pour plus de sécurité
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // 1. Supprimer toutes les questions des quiz
+      await Question.deleteMany({ quizId: { $in: quizIds } }).session(session);
+
+      // 2. Supprimer tous les quiz
+      await Quiz.deleteMany({ _id: { $in: quizIds } }).session(session);
+
+      // 3. Supprimer toutes les sections
+      await Section.deleteMany({ _id: { $in: sectionIds } }).session(session);
+
+      // 4. Supprimer tous les chapitres
+      await Chapter.deleteMany({ _id: { $in: chapterIds } }).session(session);
+
+      // 5. Supprimer toutes les progressions
+      await Progress.deleteMany({ courseId: id }).session(session);
+
+      // 6. Finalement supprimer le cours
+      await Course.deleteOne({ _id: id }).session(session);
+
+      await session.commitTransaction();
+      session.endSession();
+
+      res.status(200).json({
+        success: true,
+        message: 'Cours et tous ses éléments associés supprimés avec succès',
+        data: { id }
+      });
+
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
+    }
+
   } catch (error) {
+    console.error('Erreur lors de la suppression du cours:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression du cours',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -961,39 +990,64 @@ export const getCourseById = async (req, res) => {
     const course = await Course.findById(id)
       .populate({
         path: 'createdBy',
-        select: 'prenom nom email role',
+        select: 'prenom nom email role'
       })
       .populate({
         path: 'chapters',
         options: { sort: { order: 1 } },
         populate: [
-          { path: 'sections', options: { sort: { order: 1 } } },
+          { 
+            path: 'sections',
+            options: { sort: { order: 1 } },
+            select: 'title content videoUrl order duration' // Ajout de content et videoUrl
+          },
           {
             path: 'quiz',
-            populate: { path: 'questions', select: 'text options.text' }, // Exclude isCorrect
-          },
-        ],
+            populate: { 
+              path: 'questions',
+              select: 'text options explanation points' // Inclure toutes les données nécessaires
+            }
+          }
+        ]
       });
 
     if (!course) {
       return res.status(404).json({ success: false, message: 'Cours non trouvé' });
     }
 
-    let progress = null;
-    if (req.user) {
-      progress = await Progress.findOne({ userId: req.user.id, courseId: id });
-    }
+    // Transformer la structure pour le frontend
+    const transformedCourse = {
+      ...course.toObject(),
+      chapters: course.chapters.map(chapter => ({
+        ...chapter.toObject(),
+        quiz: chapter.quiz ? {
+          ...chapter.quiz.toObject(),
+          questions: chapter.quiz.questions.map(question => ({
+            ...question.toObject(),
+            options: question.options.map(opt => opt.text),
+            correctOption: question.options.reduce((acc, opt, idx) => {
+              if (opt.isCorrect) acc.push(idx);
+              return acc;
+            }, []),
+            multipleAnswers: question.options.filter(opt => opt.isCorrect).length > 1
+          }))
+        } : {
+          passingScore: 70,
+          questions: []
+        }
+      }))
+    };
 
     res.status(200).json({
       success: true,
-      data: { ...course.toObject(), progress: progress || null },
+      data: transformedCourse
     });
   } catch (error) {
     console.error('Error in getCourseById:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération du cours',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -1158,7 +1212,86 @@ export const checkSubscription = async (req, res) => {
     });
   }
 };
+export const getCourseForEditing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
 
+    // Vérifier que l'utilisateur est bien le créateur du cours
+    const course = await Course.findOne({ _id: id, createdBy: userId })
+      .populate({
+        path: 'chapters',
+        options: { sort: { order: 1 } },
+        populate: [
+          { 
+            path: 'sections',
+            options: { sort: { order: 1 } }
+          },
+          {
+            path: 'quiz',
+            populate: {
+              path: 'questions',
+              select: 'text options explanation'
+            }
+          }
+        ]
+      });
+
+    if (!course) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Cours non trouvé ou vous n\'êtes pas autorisé à le modifier' 
+      });
+    }
+
+    // Transformer la structure pour le frontend
+    const transformedData = {
+      _id: course._id,
+      title: course.title,
+      description: course.description,
+      imageUrl: course.imageUrl,
+      category: course.category,
+      chapters: course.chapters.map(chapter => ({
+        _id: chapter._id,
+        title: chapter.title,
+        order: chapter.order,
+        sections: chapter.sections.map(section => ({
+          _id: section._id,
+          title: section.title,
+          content: section.content,
+          videoUrl: section.videoUrl,
+          order: section.order
+        })),
+        quiz: chapter.quiz ? {
+          _id: chapter.quiz._id,
+          passingScore: chapter.quiz.passingScore || 70,
+          questions: chapter.quiz.questions.map(question => ({
+            _id: question._id,
+            text: question.text,
+            options: question.options.map(opt => opt.text),
+            correctOption: question.options.findIndex(opt => opt.isCorrect),
+            explanation: question.explanation || ''
+          }))
+        } : {
+          passingScore: 70,
+          questions: []
+        }
+      }))
+    };
+
+    res.status(200).json({
+      success: true,
+      data: transformedData
+    });
+  } catch (error) {
+    console.error('Error in getCourseForEditing:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération du cours pour édition',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
 
 
 // controllers/courseController.js
