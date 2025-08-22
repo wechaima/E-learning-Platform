@@ -1,9 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FiPlus, FiTrash2, FiChevronDown, FiMenu, FiArrowLeft } from 'react-icons/fi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import Editor from "react-simple-code-editor";
+import { highlight, languages } from "prismjs";
+import "prismjs/components/prism-clike";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-python";
+import "prismjs/components/prism-jsx";
+import "prismjs/components/prism-css";
+import "prismjs/components/prism-markup";
+import "prismjs/themes/prism-tomorrow.css";
 import './CourseEditor.css';
+
+const editorConfiguration = {
+  toolbar: {
+    items: [
+      'heading',
+      '|',
+      'bold',
+      'italic',
+      'link',
+      'bulletedList',
+      'numberedList',
+      '|',
+      'codeBlock',
+      'blockQuote',
+      'insertTable',
+      '|',
+      'undo',
+      'redo'
+    ]
+  },
+  codeBlock: {
+    languages: [
+      { language: 'javascript', label: 'JavaScript' },
+      { language: 'python', label: 'Python' },
+      { language: 'html', label: 'HTML' },
+      { language: 'css', label: 'CSS' },
+      { language: 'jsx', label: 'JSX' }
+    ]
+  }
+};
 
 function CourseEditor({ onSubmit, onCancel, initialData }) {
   const [courseData, setCourseData] = useState({
@@ -23,38 +62,47 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
   });
 
   const [editorContents, setEditorContents] = useState({});
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
+  const [currentCode, setCurrentCode] = useState('');
+  const [codeLanguage, setCodeLanguage] = useState('javascript');
+  const [editorInstance, setEditorInstance] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quizErrors, setQuizErrors] = useState({});
+  const [pastedContent, setPastedContent] = useState('');
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const pasteTargetRef = useRef(null);
 
- useEffect(() => {
+  useEffect(() => {
     if (initialData) {
       const formattedData = {
-        ...initialData,
-        description: initialData.description || '', // Ensure description is set
+        title: initialData.title || '',
+        description: initialData.description || '',
+        imageUrl: initialData.imageUrl || '',
+        category: initialData.category || '',
         chapters: (initialData.chapters || []).map((chapter, chapterIndex) => ({
-          ...chapter,
           _id: chapter._id || `chapter-${Date.now()}-${chapterIndex}`,
+          title: chapter.title || `Chapitre ${chapterIndex + 1}`,
           order: chapter.order || chapterIndex + 1,
           sections: (chapter.sections || []).map((section, sectionIndex) => ({
-            ...section,
-            _id: section._id || `section-${Date.now()}-${sectionIndex}`,
-            order: section.order || sectionIndex + 1,
+            _id: section._id || `section-${Date.now()}-${chapterIndex}-${sectionIndex}`,
+            title: section.title || `Section ${sectionIndex + 1}`,
             content: section.content || '',
-            videoUrl: section.videoUrl || ''
+            videoUrl: section.videoUrl || '',
+            order: section.order || sectionIndex + 1,
+            duration: section.duration || 0
           })),
           quiz: chapter.quiz ? {
-            ...chapter.quiz,
+            _id: chapter.quiz._id || `quiz-${Date.now()}-${chapterIndex}`,
             passingScore: chapter.quiz.passingScore || 70,
             questions: (chapter.quiz.questions || []).map((question, qIndex) => ({
-              ...question,
-              _id: question._id || `question-${Date.now()}-${qIndex}`,
+              _id: question._id || `question-${Date.now()}-${chapterIndex}-${qIndex}`,
               text: question.text || '',
               options: question.options || ['', '', '', ''],
               correctOption: Array.isArray(question.correctOption) 
                 ? question.correctOption 
-                : (question.correctOption != null ? [question.correctOption] : []),
+                : [question.correctOption].filter(v => v !== undefined),
               explanation: question.explanation || '',
-              multipleAnswers: Array.isArray(question.correctOption) 
-                ? question.correctOption.length > 1 
-                : false
+              points: question.points || 1
             }))
           } : {
             passingScore: 70,
@@ -66,7 +114,7 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
       const contents = {};
       formattedData.chapters.forEach((chapter, chapIdx) => {
         chapter.sections.forEach((section, secIdx) => {
-          contents[`${chapIdx}-${secIdx}`] = section.content || '';
+          contents[`${chapIdx}-${secIdx}`] = section.content;
         });
       });
 
@@ -74,32 +122,46 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
       setCourseData(formattedData);
     }
   }, [initialData]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCourseData({ ...courseData, [name]: value });
+    setCourseData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleChapterChange = (index, field, value) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters[index][field] = value;
-    setCourseData({ ...courseData, chapters: updatedChapters });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters[index] = { ...updatedChapters[index], [field]: value };
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
   const handleSectionChange = (chapterIndex, sectionIndex, field, value) => {
-    const updatedChapters = [...courseData.chapters];
-    
-    if (!updatedChapters[chapterIndex].sections[sectionIndex]) {
-      updatedChapters[chapterIndex].sections[sectionIndex] = {
-        _id: `section-${Date.now()}-${chapterIndex}-${sectionIndex}`,
-        title: `Section ${sectionIndex + 1}`,
-        content: '',
-        videoUrl: '',
-        order: sectionIndex + 1
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      const updatedSections = [...updatedChapters[chapterIndex].sections];
+      
+      if (!updatedSections[sectionIndex]) {
+        updatedSections[sectionIndex] = {
+          _id: `section-${Date.now()}-${chapterIndex}-${sectionIndex}`,
+          title: `Section ${sectionIndex + 1}`,
+          content: '',
+          videoUrl: '',
+          order: sectionIndex + 1
+        };
+      }
+      
+      updatedSections[sectionIndex] = { 
+        ...updatedSections[sectionIndex], 
+        [field]: value 
       };
-    }
-    
-    updatedChapters[chapterIndex].sections[sectionIndex][field] = value;
-    setCourseData({ ...courseData, chapters: updatedChapters });
+      updatedChapters[chapterIndex] = { 
+        ...updatedChapters[chapterIndex], 
+        sections: updatedSections 
+      };
+      
+      return { ...prev, chapters: updatedChapters };
+    });
 
     if (field === 'content') {
       setEditorContents(prev => ({
@@ -110,38 +172,93 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
   };
 
   const handleQuizChange = (chapterIndex, field, value) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters[chapterIndex].quiz[field] = value;
-    setCourseData({ ...courseData, chapters: updatedChapters });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters[chapterIndex] = { 
+        ...updatedChapters[chapterIndex], 
+        quiz: { 
+          ...updatedChapters[chapterIndex].quiz, 
+          [field]: value 
+        } 
+      };
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
   const handleQuestionChange = (chapterIndex, questionIndex, field, value) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters[chapterIndex].quiz.questions[questionIndex][field] = value;
-    setCourseData({ ...courseData, chapters: updatedChapters });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      const updatedQuestions = [...updatedChapters[chapterIndex].quiz.questions];
+      updatedQuestions[questionIndex] = { 
+        ...updatedQuestions[questionIndex], 
+        [field]: value 
+      };
+      updatedChapters[chapterIndex] = { 
+        ...updatedChapters[chapterIndex], 
+        quiz: { 
+          ...updatedChapters[chapterIndex].quiz, 
+          questions: updatedQuestions 
+        } 
+      };
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
   const handleOptionChange = (chapterIndex, questionIndex, optionIndex, value) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters[chapterIndex].quiz.questions[questionIndex].options[optionIndex] = value;
-    setCourseData({ ...courseData, chapters: updatedChapters });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      const updatedOptions = [...updatedChapters[chapterIndex].quiz.questions[questionIndex].options];
+      updatedOptions[optionIndex] = value;
+      
+      const updatedQuestions = [...updatedChapters[chapterIndex].quiz.questions];
+      updatedQuestions[questionIndex] = { 
+        ...updatedQuestions[questionIndex], 
+        options: updatedOptions 
+      };
+      
+      updatedChapters[chapterIndex] = { 
+        ...updatedChapters[chapterIndex], 
+        quiz: { 
+          ...updatedChapters[chapterIndex].quiz, 
+          questions: updatedQuestions 
+        } 
+      };
+      
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
   const handleCorrectOptionChange = (chapterIndex, questionIndex, optionIndex, isMultiple) => {
-    const updatedChapters = [...courseData.chapters];
-    if (isMultiple) {
-      const currentAnswers = updatedChapters[chapterIndex].quiz.questions[questionIndex].correctOption || [];
-      if (currentAnswers.includes(optionIndex)) {
-        updatedChapters[chapterIndex].quiz.questions[questionIndex].correctOption = 
-          currentAnswers.filter(i => i !== optionIndex);
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      const question = updatedChapters[chapterIndex].quiz.questions[questionIndex];
+      
+      let newCorrectOptions;
+      if (isMultiple) {
+        const currentAnswers = question.correctOption || [];
+        newCorrectOptions = currentAnswers.includes(optionIndex)
+          ? currentAnswers.filter(i => i !== optionIndex)
+          : [...currentAnswers, optionIndex];
       } else {
-        updatedChapters[chapterIndex].quiz.questions[questionIndex].correctOption = 
-          [...currentAnswers, optionIndex];
+        newCorrectOptions = [optionIndex];
       }
-    } else {
-      updatedChapters[chapterIndex].quiz.questions[questionIndex].correctOption = [optionIndex];
-    }
-    setCourseData({ ...courseData, chapters: updatedChapters });
+      
+      const updatedQuestions = [...updatedChapters[chapterIndex].quiz.questions];
+      updatedQuestions[questionIndex] = { 
+        ...question, 
+        correctOption: newCorrectOptions 
+      };
+      
+      updatedChapters[chapterIndex] = { 
+        ...updatedChapters[chapterIndex], 
+        quiz: { 
+          ...updatedChapters[chapterIndex].quiz, 
+          questions: updatedQuestions 
+        } 
+      };
+      
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
   const addChapter = () => {
@@ -156,10 +273,10 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
       }
     };
     
-    setCourseData({
-      ...courseData,
-      chapters: [...courseData.chapters, newChapter]
-    });
+    setCourseData(prev => ({
+      ...prev,
+      chapters: [...prev.chapters, newChapter]
+    }));
     setSelectedItem({ 
       type: 'chapter', 
       index: courseData.chapters.length 
@@ -167,8 +284,7 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
   };
 
   const addSection = (chapterIndex) => {
-    const updatedChapters = [...courseData.chapters];
-    const newSectionIndex = updatedChapters[chapterIndex].sections.length;
+    const newSectionIndex = courseData.chapters[chapterIndex].sections.length;
     
     const newSection = {
       _id: `section-${Date.now()}-${chapterIndex}-${newSectionIndex}`,
@@ -178,9 +294,15 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
       order: newSectionIndex + 1
     };
     
-    updatedChapters[chapterIndex].sections.push(newSection);
-    
-    setCourseData({ ...courseData, chapters: updatedChapters });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters[chapterIndex] = {
+        ...updatedChapters[chapterIndex],
+        sections: [...updatedChapters[chapterIndex].sections, newSection]
+      };
+      return { ...prev, chapters: updatedChapters };
+    });
+
     setSelectedItem({ 
       type: 'section', 
       chapterIndex,
@@ -194,19 +316,30 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
   };
 
   const addQuizQuestion = (chapterIndex) => {
-    const updatedChapters = [...courseData.chapters];
-    const questionCount = updatedChapters[chapterIndex].quiz.questions.length;
+    const questionCount = courseData.chapters[chapterIndex].quiz.questions.length;
     
-    updatedChapters[chapterIndex].quiz.questions.push({
-      _id: `question-${Date.now()}-${chapterIndex}-${questionCount}`,
-      text: '',
-      options: ['', '', '', ''],
-      correctOption: [],
-      explanation: '',
-      multipleAnswers: false
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters[chapterIndex] = {
+        ...updatedChapters[chapterIndex],
+        quiz: {
+          ...updatedChapters[chapterIndex].quiz,
+          questions: [
+            ...updatedChapters[chapterIndex].quiz.questions,
+            {
+              _id: `question-${Date.now()}-${chapterIndex}-${questionCount}`,
+              text: '',
+              options: ['', '', '', ''],
+              correctOption: [],
+              explanation: '',
+              multipleAnswers: false
+            }
+          ]
+        }
+      };
+      return { ...prev, chapters: updatedChapters };
     });
-    
-    setCourseData({ ...courseData, chapters: updatedChapters });
+
     setSelectedItem({
       type: 'quiz',
       chapterIndex,
@@ -218,43 +351,54 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
     if (!result.destination) return;
 
     const { source, destination } = result;
-    const updatedChapters = [...courseData.chapters];
     const chapterIndex = parseInt(source.droppableId.split('-')[1]);
-    const chapter = updatedChapters[chapterIndex];
     
-    const [movedSection] = chapter.sections.splice(source.index, 1);
-    chapter.sections.splice(destination.index, 0, movedSection);
-    
-    chapter.sections.forEach((section, idx) => {
-      section.order = idx + 1;
-    });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      const chapter = updatedChapters[chapterIndex];
+      const [movedSection] = chapter.sections.splice(source.index, 1);
+      chapter.sections.splice(destination.index, 0, movedSection);
+      
+      chapter.sections.forEach((section, idx) => {
+        section.order = idx + 1;
+      });
 
-    setCourseData({ ...courseData, chapters: updatedChapters });
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
   const deleteChapter = (index) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters.splice(index, 1);
-    
-    updatedChapters.forEach((chap, idx) => {
-      chap.order = idx + 1;
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters.splice(index, 1);
+      
+      updatedChapters.forEach((chap, idx) => {
+        chap.order = idx + 1;
+      });
+      
+      return { ...prev, chapters: updatedChapters };
     });
-    
-    setCourseData({ ...courseData, chapters: updatedChapters });
+
     if (selectedItem.type === 'chapter' && selectedItem.index === index) {
       setSelectedItem({ type: 'course', index: null });
     }
   };
 
   const deleteSection = (chapterIndex, sectionIndex) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters[chapterIndex].sections.splice(sectionIndex, 1);
-    
-    updatedChapters[chapterIndex].sections.forEach((sec, idx) => {
-      sec.order = idx + 1;
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters[chapterIndex] = {
+        ...updatedChapters[chapterIndex],
+        sections: updatedChapters[chapterIndex].sections.filter((_, idx) => idx !== sectionIndex)
+      };
+      
+      updatedChapters[chapterIndex].sections.forEach((sec, idx) => {
+        sec.order = idx + 1;
+      });
+      
+      return { ...prev, chapters: updatedChapters };
     });
-    
-    setCourseData({ ...courseData, chapters: updatedChapters });
+
     if (selectedItem.type === 'section' && 
         selectedItem.chapterIndex === chapterIndex && 
         selectedItem.sectionIndex === sectionIndex) {
@@ -269,26 +413,128 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
   };
 
   const deleteQuestion = (chapterIndex, questionIndex) => {
-    const updatedChapters = [...courseData.chapters];
-    updatedChapters[chapterIndex].quiz.questions.splice(questionIndex, 1);
-    setCourseData({ ...courseData, chapters: updatedChapters });
+    setCourseData(prev => {
+      const updatedChapters = [...prev.chapters];
+      updatedChapters[chapterIndex] = {
+        ...updatedChapters[chapterIndex],
+        quiz: {
+          ...updatedChapters[chapterIndex].quiz,
+          questions: updatedChapters[chapterIndex].quiz.questions.filter((_, idx) => idx !== questionIndex)
+        }
+      };
+      return { ...prev, chapters: updatedChapters };
+    });
   };
 
-  const handleSubmit = (e) => {
+  const insertCode = () => {
+    if (editorInstance) {
+      const codeBlock = `\n\`\`\`${codeLanguage}\n${currentCode}\n\`\`\`\n`;
+      editorInstance.model.change(writer => {
+        const insertPosition = editorInstance.model.document.selection.getFirstPosition();
+        writer.insertText(codeBlock, insertPosition);
+      });
+      setShowCodeEditor(false);
+      setCurrentCode('');
+    }
+  };
+
+  const handlePaste = (event, editor) => {
+    // Vérifier si le contenu collé contient du code avec coloration
+    const clipboardData = event.clipboardData || window.clipboardData;
+    const pastedText = clipboardData.getData('text/plain');
+    const pastedHtml = clipboardData.getData('text/html');
+    
+    // Si le HTML contient des spans avec des styles (coloration syntaxique)
+    if (pastedHtml && pastedHtml.includes('span style')) {
+      event.preventDefault();
+      
+      // Stocker le contenu et la cible pour traitement
+      setPastedContent(pastedText);
+      pasteTargetRef.current = editor;
+      setShowPasteModal(true);
+    }
+  };
+
+  const handlePasteConfirm = () => {
+    if (pasteTargetRef.current) {
+      const codeBlock = `\n\`\`\`${codeLanguage}\n${pastedContent}\n\`\`\`\n`;
+      pasteTargetRef.current.model.change(writer => {
+        const insertPosition = pasteTargetRef.current.model.document.selection.getFirstPosition();
+        writer.insertText(codeBlock, insertPosition);
+      });
+    }
+    
+    setShowPasteModal(false);
+    setPastedContent('');
+    pasteTargetRef.current = null;
+  };
+
+  const validateQuizQuestions = () => {
+    const errors = {};
+    let isValid = true;
+
+    courseData.chapters.forEach((chapter, chapterIndex) => {
+      if (chapter.quiz && chapter.quiz.questions.length > 0) {
+        chapter.quiz.questions.forEach((question, questionIndex) => {
+          if (!question.correctOption || question.correctOption.length === 0) {
+            errors[`${chapterIndex}-${questionIndex}`] = 'Veuillez sélectionner au moins une réponse correcte';
+            isValid = false;
+          }
+        });
+      }
+    });
+
+    setQuizErrors(errors);
+    return isValid;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const chaptersWithUpdatedContent = courseData.chapters.map((chapter, chapIdx) => ({
-      ...chapter,
-      sections: chapter.sections.map((section, secIdx) => ({
-        ...section,
-        content: editorContents[`${chapIdx}-${secIdx}`] || section.content
-      }))
-    }));
+    if (!validateQuizQuestions()) {
+      return;
+    }
 
-    onSubmit({
-      ...courseData,
-      chapters: chaptersWithUpdatedContent
-    });
+    setIsSubmitting(true);
+    
+    try {
+      const chaptersWithUpdatedContent = courseData.chapters.map((chapter, chapIdx) => ({
+        ...chapter,
+        sections: chapter.sections.map((section, secIdx) => ({
+          ...section,
+          content: editorContents[`${chapIdx}-${secIdx}`] || section.content
+        })),
+        quiz: chapter.quiz ? {
+          ...chapter.quiz,
+          questions: chapter.quiz.questions.map(question => ({
+            ...question,
+            correctOption: Array.isArray(question.correctOption) 
+              ? question.correctOption 
+              : [question.correctOption].filter(v => v !== undefined)
+          }))
+        } : undefined
+      }));
+
+      await onSubmit({
+        ...courseData,
+        chapters: chaptersWithUpdatedContent
+      });
+    } catch (error) {
+      console.error("Erreur lors de la soumission du cours:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const highlightCode = (code) => {
+    switch(codeLanguage) {
+      case 'javascript': return highlight(code, languages.javascript, 'javascript');
+      case 'python': return highlight(code, languages.python, 'python');
+      case 'jsx': return highlight(code, languages.jsx, 'jsx');
+      case 'html': return highlight(code, languages.html, 'html');
+      case 'css': return highlight(code, languages.css, 'css');
+      default: return highlight(code, languages.javascript, 'javascript');
+    }
   };
 
   return (
@@ -423,11 +669,16 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
               <label>Description*</label>
               <CKEditor
                 editor={ClassicEditor}
+                config={editorConfiguration}
                 data={courseData.description}
                 onChange={(event, editor) => {
                   const data = editor.getData();
-                  setCourseData({ ...courseData, description: data });
+                  setCourseData(prev => ({ ...prev, description: data }));
                 }}
+                onReady={editor => {
+                  setEditorInstance(editor);
+                }}
+                onPaste={(event, editor) => handlePaste(event, editor)}
               />
             </div>
 
@@ -441,7 +692,7 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
                   if (file) {
                     const reader = new FileReader();
                     reader.onloadend = () => {
-                      setCourseData({ ...courseData, imageUrl: reader.result });
+                      setCourseData(prev => ({ ...prev, imageUrl: reader.result }));
                     };
                     reader.readAsDataURL(file);
                   }
@@ -508,34 +759,85 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
 
             <div className="form-group">
               <label>Contenu</label>
-              <CKEditor
-                key={`editor-${selectedItem.chapterIndex}-${selectedItem.sectionIndex}`}
-                editor={ClassicEditor}
-                data={editorContents[`${selectedItem.chapterIndex}-${selectedItem.sectionIndex}`] || ''}
-                onChange={(event, editor) => {
-                  const data = editor.getData();
-                  handleSectionChange(
-                    selectedItem.chapterIndex,
-                    selectedItem.sectionIndex,
-                    'content',
-                    data
-                  );
-                }}
-                onBlur={(event, editor) => {
-                  const data = editor.getData();
-                  handleSectionChange(
-                    selectedItem.chapterIndex,
-                    selectedItem.sectionIndex,
-                    'content',
-                    data
-                  );
-                }}
-                config={{
-                  autoParagraph: false,
-                  fillEmptyBlocks: false,
-                  removePlugins: ['Title']
-                }}
-              />
+              <div className="editor-container">
+                <CKEditor
+                  editor={ClassicEditor}
+                  config={editorConfiguration}
+                  data={editorContents[`${selectedItem.chapterIndex}-${selectedItem.sectionIndex}`] || ''}
+                  onChange={(event, editor) => {
+                    const data = editor.getData();
+                    handleSectionChange(
+                      selectedItem.chapterIndex,
+                      selectedItem.sectionIndex,
+                      'content',
+                      data
+                    );
+                  }}
+                  onReady={editor => {
+                    setEditorInstance(editor);
+                  }}
+                  onPaste={(event, editor) => handlePaste(event, editor)}
+                  key={`${selectedItem.chapterIndex}-${selectedItem.sectionIndex}`}
+                />
+                
+                <button 
+                  type="button"
+                  className="add-code-btn"
+                  onClick={() => setShowCodeEditor(!showCodeEditor)}
+                >
+                  {showCodeEditor ? 'Masquer l\'éditeur de code' : 'Ajouter du code'}
+                </button>
+                
+                {showCodeEditor && (
+                  <div className="code-editor-modal">
+                    <div className="code-editor-header">
+                      <select
+                        value={codeLanguage}
+                        onChange={(e) => setCodeLanguage(e.target.value)}
+                        className="language-selector"
+                      >
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="jsx">JSX</option>
+                      </select>
+                      
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(currentCode)}
+                        className="copy-btn"
+                      >
+                        Copier
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={insertCode}
+                        className="insert-btn"
+                      >
+                        Insérer
+                      </button>
+                    </div>
+                    
+                    <div className="code-editor-content">
+                      <Editor
+                        value={currentCode}
+                        onValueChange={setCurrentCode}
+                        highlight={highlightCode}
+                        padding={10}
+                        style={{
+                          fontFamily: '"Fira Code", "Fira Mono", monospace',
+                          fontSize: 14,
+                          backgroundColor: '#2d2d2d',
+                          minHeight: '200px',
+                          border: '1px solid #444'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="form-group">
@@ -649,6 +951,11 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
                         />
                       </div>
                     ))}
+                    {quizErrors[`${selectedItem.chapterIndex}-${questionIndex}`] && (
+                      <div className="error-message">
+                        {quizErrors[`${selectedItem.chapterIndex}-${questionIndex}`]}
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-group">
@@ -678,14 +985,52 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
         )}
 
         <div className="form-actions">
-          <button type="button" onClick={onCancel} className="cancel-btn">
+          <button 
+            type="button" 
+            onClick={onCancel} 
+            className="cancel-btn"
+            disabled={isSubmitting}
+          >
             Annuler
           </button>
-          <button type="submit" className="submit-btn">
-            {initialData ? 'Mettre à jour le cours' : 'Créer le cours'}
+        
+          <button 
+            type="submit" 
+            className="submit-btn"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'En cours...' : 
+             initialData ? 'Mettre à jour le cours' : 'Créer le cours'}
           </button>
         </div>
       </form>
+
+      {/* Modal pour le collage de code */}
+      {showPasteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Collage de code détecté</h3>
+            <p>Vous avez collé du code avec mise en forme. Souhaitez-vous le formater en tant que bloc de code?</p>
+            <div className="code-preview">
+              <pre>{pastedContent}</pre>
+            </div>
+            <div className="modal-actions">
+              <button 
+                onClick={() => setShowPasteModal(false)}
+                className="cancel-btn"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handlePasteConfirm}
+                className="confirm-btn"
+              >
+                Formater comme code
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

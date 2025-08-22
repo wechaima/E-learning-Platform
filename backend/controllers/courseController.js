@@ -5,6 +5,7 @@ import Quiz from '../models/Quiz.js';
 import Question from '../models/Question.js';
 import Progress from '../models/Progress.js';
 import mongoose from 'mongoose';  
+import { sendCourseUpdateEmail } from '../services/emailService.js';
 // Créer un nouveau cours avec chapitres
 export const createCourse = async (req, res) => {
   try {
@@ -388,13 +389,11 @@ export const getAllCourses = async (req, res) => {
   }
 };
 
-// Mettre à jour un cours
 export const updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, imageUrl, category, chapters } = req.body;
 
-    // Validation de l'ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -402,7 +401,6 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Trouver le cours existant
     let course = await Course.findById(id);
     if (!course) {
       return res.status(404).json({
@@ -411,7 +409,6 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Vérifier les permissions
     if (course.createdBy.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
@@ -419,20 +416,24 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Mettre à jour les champs de base
+    // Sauvegarde de l'ancien état pour comparaison
+    const oldChapterIds = course.chapters.map(c => c.toString());
+
+    // Mise à jour des champs de base
     course.title = title || course.title;
     course.description = description || course.description;
     course.imageUrl = imageUrl || course.imageUrl;
     course.category = category || course.category;
 
     // Gestion des chapitres
-    if (chapters && Array.isArray(chapters)) {
-      const newChapterIds = [];
+    let newChapterIds = [];
+    let lastAddedChapter = null;
 
+    if (chapters && Array.isArray(chapters)) {
       for (const chapterData of chapters) {
         let chapter;
 
-        // Si le chapitre a un _id, on le met à jour
+        // Mise à jour du chapitre existant
         if (chapterData._id && mongoose.Types.ObjectId.isValid(chapterData._id)) {
           chapter = await Chapter.findById(chapterData._id);
           if (chapter) {
@@ -442,7 +443,7 @@ export const updateCourse = async (req, res) => {
           }
         }
 
-        // Sinon, on crée un nouveau chapitre
+        // Création d'un nouveau chapitre
         if (!chapter) {
           chapter = new Chapter({
             title: chapterData.title,
@@ -450,11 +451,11 @@ export const updateCourse = async (req, res) => {
             order: chapterData.order || chapters.length
           });
           await chapter.save();
+          lastAddedChapter = chapter; // Garder trace du dernier ajout
         }
 
         // Gestion des sections
         if (chapterData.sections && Array.isArray(chapterData.sections)) {
-          // Supprimer les anciennes sections
           await Section.deleteMany({ chapterId: chapter._id });
 
           const sections = await Section.insertMany(
@@ -472,9 +473,8 @@ export const updateCourse = async (req, res) => {
 
         // Gestion du quiz
         if (chapterData.quiz && chapterData.quiz.questions) {
-          // Supprimer l'ancien quiz
           await Quiz.deleteMany({ chapterId: chapter._id });
-          await Question.deleteMany({ quizId: { $in: await Quiz.find({ chapterId: chapter._id }).select('_id') } });
+          await Question.deleteMany({ quizId: { $in: await Quiz.find({ chapterId: chapter._id }).select('_id') }});
 
           const quiz = new Quiz({
             passingScore: chapterData.quiz.passingScore || 70,
@@ -485,7 +485,10 @@ export const updateCourse = async (req, res) => {
           const questions = await Question.insertMany(
             chapterData.quiz.questions.map(question => ({
               text: question.text,
-              options: question.options,
+              options: question.options.map((opt, i) => ({
+                text: opt.text || opt, // Supporte les deux formats
+                isCorrect: i === (question.correctOption || 0)
+              })),
               explanation: question.explanation,
               quizId: savedQuiz._id
             }))
@@ -501,15 +504,14 @@ export const updateCourse = async (req, res) => {
         newChapterIds.push(chapter._id);
       }
 
-      // Supprimer les chapitres qui ne sont plus dans la liste
+      // Suppression des chapitres supprimés
       await Chapter.deleteMany({ courseId: id, _id: { $nin: newChapterIds } });
       course.chapters = newChapterIds;
     }
 
-    // Sauvegarder les modifications
     await course.save();
 
-    // Peupler les relations pour la réponse
+    // Récupération complète avec les followers
     const populatedCourse = await Course.findById(course._id)
       .populate({
         path: 'chapters',
@@ -519,7 +521,23 @@ export const updateCourse = async (req, res) => {
         ],
         options: { sort: { order: 1 } }
       })
-      .populate('createdBy', 'prenom nom');
+      .populate('createdBy', 'prenom nom')
+      .populate('followers', 'email');
+
+    // Détection des modifications importantes
+    const hasNewChapters = newChapterIds.some(id => !oldChapterIds.includes(id.toString()));
+    const chapterToNotify = hasNewChapters ? 
+      populatedCourse.chapters.find(c => !oldChapterIds.includes(c._id.toString())) : 
+      populatedCourse.chapters[populatedCourse.chapters.length - 1];
+
+    // Envoi des notifications
+    if (populatedCourse.followers && populatedCourse.followers.length > 0) {
+      await sendCourseUpdateEmail(
+        populatedCourse, 
+        chapterToNotify, 
+        populatedCourse.followers
+      );
+    }
 
     return res.status(200).json({
       success: true,
