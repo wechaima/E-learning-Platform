@@ -452,9 +452,7 @@ function AdminDashboard() {
                 <button onClick={handleEditProfile} className="dropdown-item">
                   <FaUserCircle /> Mon Profil
                 </button>
-                <button onClick={handleNotifications} className="dropdown-item">
-                  <FaBell /> Notifications
-                </button>
+                
                 <button onClick={handleLogout} className="dropdown-item logout">
                   <FaSignOutAlt /> Déconnexion
                 </button>

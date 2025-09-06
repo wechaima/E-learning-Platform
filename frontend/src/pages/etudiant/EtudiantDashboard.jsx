@@ -15,7 +15,8 @@ import {
   FiCheckCircle,
   FiLock,
   FiEye,
-  FiEyeOff
+  FiEyeOff,
+  FiList
 } from 'react-icons/fi';
 import { Menu, MenuItem, MenuButton } from '@szhsin/react-menu';
 import '@szhsin/react-menu/dist/index.css';
@@ -35,6 +36,8 @@ function EtudiantDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [categories, setCategories] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -87,8 +90,12 @@ function EtudiantDashboard() {
           api.get('/courses?populate=createdBy'),
           user ? api.get(`/users/${user.id}/followed-courses`) : Promise.resolve({ data: [] }),
         ]);
-        setAllCourses(allRes.data.data || allRes.data || []);
+        const courses = allRes.data.data || allRes.data || [];
+        setAllCourses(courses);
         setFollowedCourses(followedRes.data.data || followedRes.data || []);
+        // Extract unique categories
+        const uniqueCategories = ['all', ...new Set(courses.map(course => course.category))];
+        setCategories(uniqueCategories);
       } catch (err) {
         setError(err.response?.data?.message || 'Erreur lors du chargement des cours');
         console.error('Erreur:', err);
@@ -221,74 +228,74 @@ function EtudiantDashboard() {
   };
 
   const handlePasswordUpdate = async (e) => {
-  e.preventDefault();
-  
-  try {
-    // Validation côté client
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      return toast.error('Tous les champs sont obligatoires');
-    }
-
-    if (passwordForm.newPassword.length < 8) {
-      return toast.error('Le mot de passe doit contenir au moins 8 caractères');
-    }
-
-    if (!/[A-Z]/.test(passwordForm.newPassword) || !/[!@#$%^&*]/.test(passwordForm.newPassword)) {
-      return toast.error('Le mot de passe doit contenir une majuscule et un caractère spécial');
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      return toast.error('Les mots de passe ne correspondent pas');
-    }
-
-    const response = await api.put(
-      '/user/change-password',
-      {
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        }
-      }
-    );
-
-    if (response.data.success) {
-      toast.success('Mot de passe mis à jour avec succès!');
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-    }
-  } catch (err) {
-    console.error('Détails de l\'erreur:', {
-      message: err.message,
-      response: err.response?.data,
-      config: err.config
-    });
-
-    let errorMessage = 'Erreur serveur - Veuillez réessayer plus tard';
+    e.preventDefault();
     
-    if (err.response) {
-      // Erreur avec réponse du serveur
-      if (err.response.status === 400) {
-        errorMessage = err.response.data.message || 'Données invalides';
-      } else if (err.response.status === 401) {
-        errorMessage = 'Ancien mot de passe incorrect';
-      } else if (err.response.data?.message) {
-        errorMessage = err.response.data.message;
+    try {
+      // Validation côté client
+      if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+        return toast.error('Tous les champs sont obligatoires');
       }
-    } else if (err.request) {
-      // La requête a été faite mais pas de réponse
-      errorMessage = 'Pas de réponse du serveur - Vérifiez votre connexion';
-    }
 
-    toast.error(errorMessage);
-  }
-};
+      if (passwordForm.newPassword.length < 8) {
+        return toast.error('Le mot de passe doit contenir au moins 8 caractères');
+      }
+
+      if (!/[A-Z]/.test(passwordForm.newPassword) || !/[!@#$%^&*]/.test(passwordForm.newPassword)) {
+        return toast.error('Le mot de passe doit contenir une majuscule et un caractère spécial');
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        return toast.error('Les mots de passe ne correspondent pas');
+      }
+
+      const response = await api.put(
+        '/user/change-password',
+        {
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Mot de passe mis à jour avec succès!');
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      }
+    } catch (err) {
+      console.error('Détails de l\'erreur:', {
+        message: err.message,
+        response: err.response?.data,
+        config: err.config
+      });
+
+      let errorMessage = 'Erreur serveur - Veuillez réessayer plus tard';
+      
+      if (err.response) {
+        // Erreur avec réponse du serveur
+        if (err.response.status === 400) {
+          errorMessage = err.response.data.message || 'Données invalides';
+        } else if (err.response.status === 401) {
+          errorMessage = 'Ancien mot de passe incorrect';
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
+        }
+      } else if (err.request) {
+        // La requête a été faite mais pas de réponse
+        errorMessage = 'Pas de réponse du serveur - Vérifiez votre connexion';
+      }
+
+      toast.error(errorMessage);
+    }
+  };
 
   const togglePasswordVisibility = (field) => {
     setShowPassword({
@@ -299,10 +306,12 @@ function EtudiantDashboard() {
 
   const filteredCourses = activeTab === 'all'
     ? allCourses.filter((course) =>
-        course.title.toLowerCase().includes(searchTerm.toLowerCase())
+        course.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        (selectedCategory === 'all' || course.category === selectedCategory)
       )
     : followedCourses.filter((course) =>
-        course.title.toLowerCase().includes(searchTerm.toLowerCase())
+        course.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        (selectedCategory === 'all' || course.category === selectedCategory)
       );
 
   return (
@@ -320,7 +329,7 @@ function EtudiantDashboard() {
       />
       <div className="sidebar">
         <div className="sidebar-header">
-         <img src={logo} alt="EduPlatform Logo" className="logo-image" />
+          <img src={logo} alt="EduPlatform Logo" className="logo-image" />
         </div>
         <nav className="sidebar-nav">
           <button
@@ -352,6 +361,26 @@ function EtudiantDashboard() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Menu
+              menuButton={
+                <MenuButton className="category-button">
+                  <FiList className="category-icon" />
+                  Catégories
+                </MenuButton>
+              }
+              align="start"
+              transition
+            >
+              {categories.map((category, index) => (
+                <MenuItem
+                  key={index}
+                  onClick={() => setSelectedCategory(category)}
+                  className={selectedCategory === category ? 'category-item active' : 'category-item'}
+                >
+                  {category === 'all' ? 'Toutes les catégories' : category}
+                </MenuItem>
+              ))}
+            </Menu>
           </div>
           <div className="user-info">
             {user && (
@@ -697,6 +726,9 @@ function EtudiantDashboard() {
                       {course.createdBy?.prenom} {course.createdBy?.nom}
                     </span>
                   </div>
+                  <div className="course-category">
+                    <span>Catégorie: {course.category}</span>
+                  </div>
                 </div>
               </div>
             ))
@@ -704,7 +736,7 @@ function EtudiantDashboard() {
             <div className="no-results">
               {activeTab === 'followed'
                 ? 'Vous ne suivez aucun cours pour le moment'
-                : `Aucun cours trouvé pour "${searchTerm}"`}
+                : `Aucun cours trouvé pour "${searchTerm}"${selectedCategory !== 'all' ? ` dans la catégorie "${selectedCategory}"` : ''}`}
             </div>
           )}
         </div>

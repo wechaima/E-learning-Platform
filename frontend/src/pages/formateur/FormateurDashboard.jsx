@@ -15,7 +15,8 @@ import {
   FiEye,
   FiEyeOff,
   FiBarChart2,
-  FiMessageSquare
+  FiMessageSquare,
+  FiList
 } from 'react-icons/fi';
 import { FaSearch } from 'react-icons/fa';
 import { Menu, MenuItem, MenuButton } from '@szhsin/react-menu';
@@ -26,9 +27,8 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
 import CourseEditor from '../../components/course/CourseEditor';
-
-import logo from '../../assets/logo2.png';
 import InstructorMessages from '../../components/Notification/InstructorMessages';
+import logo from '../../assets/logo2.png';
 Modal.setAppElement('#root');
 
 function FormateurDashboard() {
@@ -37,7 +37,9 @@ function FormateurDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [categories, setCategories] = useState([]);
+  const [activeTab, setActiveTab] = useState('my');
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [showAddCourseModal, setShowAddCourseModal] = useState(false);
@@ -89,18 +91,13 @@ function FormateurDashboard() {
   }, [user]);
 
   useEffect(() => {
-    // Filtrer les cours en fonction du terme de recherche
+    // Filtrer les cours en fonction du terme de recherche et de la catégorie
     const filterCourses = () => {
       const coursesToFilter = activeTab === 'all' ? allCourses : myCourses;
       
-      if (!searchTerm.trim()) {
-        setFilteredCourses(coursesToFilter);
-        return;
-      }
-      
       const filtered = coursesToFilter.filter((course) => {
         const searchLower = searchTerm.toLowerCase();
-        return (
+        const matchesSearch = (
           course.title.toLowerCase().includes(searchLower) ||
           (course.description && course.description.toLowerCase().includes(searchLower)) ||
           (course.category && course.category.toLowerCase().includes(searchLower)) ||
@@ -109,13 +106,15 @@ function FormateurDashboard() {
             course.createdBy.nom.toLowerCase().includes(searchLower)
           ))
         );
+        const matchesCategory = selectedCategory === 'all' || course.category === selectedCategory;
+        return matchesSearch && matchesCategory;
       });
       
       setFilteredCourses(filtered);
     };
     
     filterCourses();
-  }, [searchTerm, allCourses, myCourses, activeTab]);
+  }, [searchTerm, selectedCategory, allCourses, myCourses, activeTab]);
 
   const fetchUnreadMessagesCount = async () => {
     try {
@@ -141,7 +140,10 @@ function FormateurDashboard() {
       
       setAllCourses(allCoursesData);
       setMyCourses(myCoursesData);
-      setFilteredCourses(allCoursesData);
+      setFilteredCourses(myCoursesData); // Initialiser avec mes cours
+      // Extract unique categories
+      const uniqueCategories = ['all', ...new Set(allCoursesData.map(course => course.category))];
+      setCategories(uniqueCategories);
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du chargement des cours');
       console.error('Erreur:', err);
@@ -286,66 +288,64 @@ function FormateurDashboard() {
     }
   };
 
-const handleEditCourse = async (updatedCourseData) => {
-  try { 
-    const dataToSend = {
-      title: updatedCourseData.title,
-      description: updatedCourseData.description,
-      imageUrl: updatedCourseData.imageUrl,
-      category: updatedCourseData.category,
-      chapters: updatedCourseData.chapters.map(chapter => ({
-        _id: chapter._id,
-        title: chapter.title,
-        order: chapter.order,
-        sections: chapter.sections.map(section => ({
-          _id: section._id,
-          title: section.title,
-          content: section.content,
-          videoUrl: section.videoUrl,
-          order: section.order,
-          duration: section.duration
-        })),
-        quiz: chapter.quiz ? {
-          _id: chapter.quiz._id,
-          passingScore: chapter.quiz.passingScore || 70,
-          questions: chapter.quiz.questions.map(question => ({
-            _id: question._id,
-            text: question.text,
-            options: question.options.map((opt, index) => ({
-              text: opt,
-              isCorrect: index === question.correctOption
-            })),
-            explanation: question.explanation,
-            points: question.points || 1
-          }))
-        } : null
-      }))
-    };
-     
-    console.log('Données envoyées:', dataToSend);
-
-    const response = await api.put(`/courses/${selectedCourse._id}`, dataToSend, {
-      headers: {
-        'Authorization': `Bearer ${user.token}`
-      }
-    });
-
-    if (response.data.success) {
-      toast.success('Cours mis à jour avec succès!');
-      const courseResponse = await api.get(
-        `/courses/${selectedCourse._id}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
-      );
+  const handleEditCourse = async (updatedCourseData) => {
+    try { 
+      const dataToSend = {
+        title: updatedCourseData.title,
+        description: updatedCourseData.description,
+        imageUrl: updatedCourseData.imageUrl,
+        category: updatedCourseData.category,
+        chapters: updatedCourseData.chapters.map(chapter => ({
+          _id: chapter._id,
+          title: chapter.title,
+          order: chapter.order,
+          sections: chapter.sections.map(section => ({
+            _id: section._id,
+            title: section.title,
+            content: section.content,
+            videoUrl: section.videoUrl,
+            order: section.order,
+            duration: section.duration
+          })),
+          quiz: chapter.quiz ? {
+            _id: chapter.quiz._id,
+            passingScore: chapter.quiz.passingScore || 70,
+            questions: chapter.quiz.questions.map(question => ({
+              _id: question._id,
+              text: question.text,
+              options: question.options.map((opt, index) => ({
+                text: opt,
+                isCorrect: index === question.correctOption
+              })),
+              explanation: question.explanation,
+              points: question.points || 1
+            }))
+          } : null
+        }))
+      };
       
-      setAllCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
-      setMyCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
-      setShowEditCourseModal(false);
-      setShowCourseDetailModal(true);
+      const response = await api.put(`/courses/${selectedCourse._id}`, dataToSend, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      if (response.data.success) {
+        toast.success('Cours mis à jour avec succès!');
+        const courseResponse = await api.get(
+          `/courses/${selectedCourse._id}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
+        );
+        
+        setAllCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
+        setMyCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
+        setShowEditCourseModal(false);
+        setShowCourseDetailModal(true);
+      }
+    } catch (err) {
+      console.error('Erreur:', err.response?.data || err);
+      toast.error(err.response?.data?.message || 'Échec de la mise à jour du cours');
     }
-  } catch (err) {
-    console.error('Erreur:', err.response?.data || err);
-    toast.error(err.response?.data?.message || 'Échec de la mise à jour du cours');
-  }
-};
+  };
 
   const handleDeleteCourse = async () => {
     try {
@@ -367,88 +367,76 @@ const handleEditCourse = async (updatedCourseData) => {
     }
   };
 
-const handleViewCourseDetails = async (courseId) => {
-  try {
-    const response = await api.get(
-      `/courses/${courseId}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
-    );
-    
-    if (!response.data.data) {
-      throw new Error("Structure de données incorrecte");
+  const handleViewCourseDetails = async (courseId) => {
+    try {
+      const response = await api.get(
+        `/courses/${courseId}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
+      );
+      
+      if (!response.data.data) {
+        throw new Error("Structure de données incorrecte");
+      }
+
+      const courseData = response.data.data;
+      
+      const formattedCourse = {
+        _id: courseData._id,
+        title: courseData.title || '',
+        description: courseData.description || '',
+        imageUrl: courseData.imageUrl || '',
+        category: courseData.category || '',
+        createdBy: courseData.createdBy,
+        chapters: (courseData.chapters || []).map((chapter) => ({
+          _id: chapter._id,
+          title: chapter.title || '',
+          order: chapter.order || 0,
+          sections: (chapter.sections || []).map((section) => ({
+            _id: section._id,
+            title: section.title || '',
+            content: section.content || '',
+            videoUrl: section.videoUrl || '',
+            order: section.order || 0,
+            duration: section.duration || 0
+          })),
+          quiz: chapter.quiz ? {
+            _id: chapter.quiz._id,
+            passingScore: chapter.quiz.passingScore || 70,
+            questions: (chapter.quiz.questions || []).map(question => ({
+              _id: question._id,
+              text: question.text || '',
+              options: Array.isArray(question.options) 
+                ? question.options.map(opt => typeof opt === 'string' ? opt : opt.text || '')
+                : ['', '', '', ''],
+              correctOption: Array.isArray(question.correctOption) 
+                ? question.correctOption 
+                : [question.correctOption].filter(v => v !== undefined && v !== null),
+              explanation: question.explanation || '',
+              points: question.points || 1,
+              multipleAnswers: Array.isArray(question.correctOption) && question.correctOption.length > 1
+            }))
+          } : {
+            passingScore: 70,
+            questions: []
+          }
+        }))
+      };
+
+      setSelectedCourse(formattedCourse);
+      setShowCourseDetailModal(true);
+    } catch (err) {
+      console.error('Erreur:', err);
+      toast.error('Erreur lors du chargement des détails du cours');
     }
-
-    const courseData = response.data.data;
-    
-    const formattedCourse = {
-      _id: courseData._id,
-      title: courseData.title || '',
-      description: courseData.description || '',
-      imageUrl: courseData.imageUrl || '',
-      category: courseData.category || '',
-      createdBy: courseData.createdBy,
-      chapters: (courseData.chapters || []).map((chapter) => ({
-        _id: chapter._id,
-        title: chapter.title || '',
-        order: chapter.order || 0,
-        sections: (chapter.sections || []).map((section) => ({
-          _id: section._id,
-          title: section.title || '',
-          content: section.content || '',
-          videoUrl: section.videoUrl || '',
-          order: section.order || 0,
-          duration: section.duration || 0
-        })),
-        quiz: chapter.quiz ? {
-          _id: chapter.quiz._id,
-          passingScore: chapter.quiz.passingScore || 70,
-          questions: (chapter.quiz.questions || []).map(question => ({
-            _id: question._id,
-            text: question.text || '',
-            options: Array.isArray(question.options) 
-              ? question.options.map(opt => typeof opt === 'string' ? opt : opt.text || '')
-              : ['', '', '', ''],
-            correctOption: Array.isArray(question.correctOption) 
-              ? question.correctOption 
-              : [question.correctOption].filter(v => v !== undefined && v !== null),
-            explanation: question.explanation || '',
-            points: question.points || 1,
-            multipleAnswers: Array.isArray(question.correctOption) && question.correctOption.length > 1
-          }))
-        } : {
-          passingScore: 70,
-          questions: []
-        }
-      }))
-    };
-
-    console.log('Cours formaté pour édition:', formattedCourse);
-    setSelectedCourse(formattedCourse);
-    setShowCourseDetailModal(true);
-  } catch (err) {
-    console.error('Erreur:', err);
-    toast.error('Erreur lors du chargement des détails du cours');
-  }
-};
+  };
 
   return (
     <div className="dashboard-container">
       <ToastContainer />
       <div className="sidebar">
         <div className="sidebar-header">
-         <img src={logo} alt="EduPlatform Logo" className="logo-image" />
+          <img src={logo} alt="EduPlatform Logo" className="logo-image" />
         </div>
         <nav className="sidebar-nav">
-          <button
-            className={`sidebar-link ${activeTab === 'all' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('all');
-              setShowMessages(false);
-              setSearchTerm('');
-            }}
-          >
-            <FiHome className="sidebar-icon" />
-            <span>Tous les cours</span>
-          </button>
           <button
             className={`sidebar-link ${activeTab === 'my' ? 'active' : ''}`}
             onClick={() => {
@@ -477,19 +465,39 @@ const handleViewCourseDetails = async (courseId) => {
         <header className="app-bar">
           <div className="search-container">
             {!showMessages && (
-                <div className="search-container">
-                   <div className="search-bar">
-                     <input 
-                       type="text" 
-                       placeholder="Rechercher des cours..." 
-                       value={searchTerm}
-                       onChange={(e) => setSearchTerm(e.target.value)}
-                     />
-                     <button className="search-button">
-                       <FaSearch />
-                     </button>
-                   </div>
-                 </div>
+              <div className="search-controls">
+                <div className="search-bar">
+                  <input 
+                    type="text" 
+                    placeholder="Rechercher des cours..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <button className="search-button">
+                    <FaSearch />
+                  </button>
+                </div>
+                <Menu
+                  menuButton={
+                    <MenuButton className="category-button">
+                      <FiList className="category-icon" />
+                      Catégories
+                    </MenuButton>
+                  }
+                  align="start"
+                  transition
+                >
+                  {categories.map((category, index) => (
+                    <MenuItem
+                      key={index}
+                      onClick={() => setSelectedCategory(category)}
+                      className={selectedCategory === category ? 'category-item active' : 'category-item'}
+                    >
+                      {category === 'all' ? 'Toutes les catégories' : category}
+                    </MenuItem>
+                  ))}
+                </Menu>
+              </div>
             )}
           </div>
           <div className="user-info">
@@ -518,8 +526,6 @@ const handleViewCourseDetails = async (courseId) => {
                   Profil
                 </div>
               </MenuItem>
-              
-
               <MenuItem onClick={handleLogout}>
                 <span className="menu-item">Déconnexion</span>
               </MenuItem>
@@ -537,7 +543,6 @@ const handleViewCourseDetails = async (courseId) => {
                 <FiPlus className="button-icon" />
                 Ajouter un cours
               </button>
-             
             </div>
 
             <Modal
@@ -809,69 +814,69 @@ const handleViewCourseDetails = async (courseId) => {
               </div>
             </Modal>
 
-      <Modal
-      isOpen={showEditCourseModal}
-      onRequestClose={() => {
-        setShowEditCourseModal(false);
-        setShowCourseDetailModal(true);
-      }}
-      className="course-modal"
-      overlayClassName="course-overlay"
-      style={{
-        content: {
-          width: '90%',
-          height: '90%',
-          margin: 'auto',
-          padding: '0'
-        }
-      }}
-    >
-      {selectedCourse && (
-        <CourseEditor 
-          onSubmit={handleEditCourse}
-          onCancel={() => {
-            setShowEditCourseModal(false);
-            setShowCourseDetailModal(true);
-          }}
-          initialData={{
-            _id: selectedCourse._id,
-            title: selectedCourse.title,
-            description: selectedCourse.description,
-            imageUrl: selectedCourse.imageUrl,
-            category: selectedCourse.category,
-            chapters: selectedCourse.chapters.map(chapter => ({
-              _id: chapter._id,
-              title: chapter.title,
-              order: chapter.order,
-              sections: chapter.sections.map(section => ({
-                _id: section._id,
-                title: section.title,
-                content: section.content,
-                videoUrl: section.videoUrl,
-                order: section.order,
-                duration: section.duration
-              })),
-              quiz: chapter.quiz ? {
-                _id: chapter.quiz._id,
-                passingScore: chapter.quiz.passingScore,
-                questions: chapter.quiz.questions.map(question => ({
-                  _id: question._id,
-                  text: question.text,
-                  options: question.options,
-                  correctOption: question.correctOption,
-                  explanation: question.explanation,
-                  points: question.points || 1,
-                  multipleAnswers: Array.isArray(question.correctOption) && question.correctOption.length > 1
-                }))
-              } : {
-                passingScore: 70,
-                questions: []
-              }
-            }))
-          }}
-        />
-      )}
-    </Modal>
+            <Modal
+              isOpen={showEditCourseModal}
+              onRequestClose={() => {
+                setShowEditCourseModal(false);
+                setShowCourseDetailModal(true);
+              }}
+              className="course-modal"
+              overlayClassName="course-overlay"
+              style={{
+                content: {
+                  width: '90%',
+                  height: '90%',
+                  margin: 'auto',
+                  padding: '0'
+                }
+              }}
+            >
+              {selectedCourse && (
+                <CourseEditor 
+                  onSubmit={handleEditCourse}
+                  onCancel={() => {
+                    setShowEditCourseModal(false);
+                    setShowCourseDetailModal(true);
+                  }}
+                  initialData={{
+                    _id: selectedCourse._id,
+                    title: selectedCourse.title,
+                    description: selectedCourse.description,
+                    imageUrl: selectedCourse.imageUrl,
+                    category: selectedCourse.category,
+                    chapters: selectedCourse.chapters.map(chapter => ({
+                      _id: chapter._id,
+                      title: chapter.title,
+                      order: chapter.order,
+                      sections: chapter.sections.map(section => ({
+                        _id: section._id,
+                        title: section.title,
+                        content: section.content,
+                        videoUrl: section.videoUrl,
+                        order: section.order,
+                        duration: section.duration
+                      })),
+                      quiz: chapter.quiz ? {
+                        _id: chapter.quiz._id,
+                        passingScore: chapter.quiz.passingScore,
+                        questions: chapter.quiz.questions.map(question => ({
+                          _id: question._id,
+                          text: question.text,
+                          options: question.options,
+                          correctOption: question.correctOption,
+                          explanation: question.explanation,
+                          points: question.points || 1,
+                          multipleAnswers: Array.isArray(question.correctOption) && question.correctOption.length > 1
+                        }))
+                      } : {
+                        passingScore: 70,
+                        questions: []
+                      }
+                    }))
+                  }}
+                />
+              )}
+            </Modal>
 
             <Modal
               isOpen={showDeleteConfirmationModal}
@@ -926,8 +931,8 @@ const handleViewCourseDetails = async (courseId) => {
                 ))
               ) : (
                 <div className="no-results">
-                  {searchTerm 
-                    ? `Aucun cours trouvé pour "${searchTerm}"`
+                  {searchTerm || selectedCategory !== 'all' 
+                    ? `Aucun cours trouvé pour "${searchTerm}"${selectedCategory !== 'all' ? ` dans la catégorie "${selectedCategory}"` : ''}`
                     : activeTab === 'my'
                     ? 'Vous n\'avez créé aucun cours pour le moment'
                     : 'Aucun cours disponible'}

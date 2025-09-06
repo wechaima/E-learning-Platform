@@ -71,7 +71,10 @@ export const createCourse = async (req, res) => {
               text: question.text,
               options: question.options.map((opt, index) => ({
                 text: opt,
-                isCorrect: index === question.correctOption
+                // Gestion des réponses multiples
+                isCorrect: Array.isArray(question.correctOption) 
+                  ? question.correctOption.includes(index)
+                  : index === question.correctOption
               })),
               explanation: question.explanation,
               quizId: newQuiz._id
@@ -483,15 +486,31 @@ export const updateCourse = async (req, res) => {
           const savedQuiz = await quiz.save();
 
           const questions = await Question.insertMany(
-            chapterData.quiz.questions.map(question => ({
-              text: question.text,
-              options: question.options.map((opt, i) => ({
-                text: opt.text || opt, // Supporte les deux formats
-                isCorrect: i === (question.correctOption || 0)
-              })),
-              explanation: question.explanation,
-              quizId: savedQuiz._id
-            }))
+            chapterData.quiz.questions.map(question => {
+              // Vérifier la structure des réponses correctes
+              let correctOptions = [];
+              if (Array.isArray(question.correctOption)) {
+                correctOptions = question.correctOption;
+              } else if (typeof question.correctOption === 'number') {
+                correctOptions = [question.correctOption];
+              } else if (question.options && question.options.some(opt => opt.isCorrect)) {
+                // Si les réponses correctes sont stockées dans les options
+                correctOptions = question.options
+                  .map((opt, index) => (opt.isCorrect ? index : -1))
+                  .filter(index => index !== -1);
+              }
+
+              return {
+                text: question.text,
+                options: question.options.map((opt, i) => ({
+                  text: typeof opt === 'string' ? opt : opt.text || '',
+                  // Déterminer si cette option est correcte
+                  isCorrect: correctOptions.includes(i)
+                })),
+                explanation: question.explanation,
+                quizId: savedQuiz._id
+              };
+            })
           );
 
           savedQuiz.questions = questions.map(q => q._id);
@@ -1345,3 +1364,20 @@ export const getCoursesByCreator = async (req, res) => {
     });
   }
 };
+// Récupérer toutes les catégories distinctes
+export const getDistinctCategories = async (req, res) => {
+  try {
+    const categories = await Course.distinct('category');
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des catégories",
+      error: error.message,
+    });
+  }
+};
+

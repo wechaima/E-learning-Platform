@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { FiChevronDown, FiChevronRight, FiArrowLeft, FiPlay, FiMessageSquare, FiArrowRight, FiArrowLeft as FiArrowLeftNav } from 'react-icons/fi';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import api from '../../api/axios';
-import './CourseDetail.css';
-import { FiChevronDown, FiChevronRight, FiArrowLeft, FiPlay, FiMessageSquare } from 'react-icons/fi';
 import QuestionForm from '../../components/Notification/QuestionForm';
+import './CourseDetail.css';
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -34,10 +36,7 @@ const CourseDetail = () => {
   const [studentMessages, setStudentMessages] = useState([]);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
 
-  const handleBackToDashboard = () => {
-    navigate(user?.role === 'formateur' ? '/formateur' : '/etudiant');
-  };
-
+  // Initialize user from localStorage
   useEffect(() => {
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
@@ -47,11 +46,58 @@ const CourseDetail = () => {
     }
   }, []);
 
+  // Fetch unread messages count for formateur
   useEffect(() => {
     if (user && user.role === 'formateur') {
       fetchUnreadMessagesCount();
     }
   }, [user]);
+
+  // Fetch course data and subscription status
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        const [courseRes, subscriptionRes] = await Promise.all([
+          api.get(`/courses/${id}`),
+          user ? api.get(`/courses/${id}/check-subscription`, {
+            headers: { Authorization: `Bearer ${user.token}` }
+          }) : Promise.resolve({ data: { isSubscribed: false } })
+        ]);
+
+        const courseData = courseRes.data.data;
+        courseData.chapters = courseData.chapters || [];
+        
+        setCourse(courseData);
+        setIsSubscribed(subscriptionRes.data.isSubscribed);
+
+        // Initialize currentContent to first valid section or quiz
+        if (subscriptionRes.data.isSubscribed && courseData.chapters.length > 0) {
+          const firstChapter = courseData.chapters[0];
+          if (firstChapter.sections.length > 0) {
+            setCurrentContent({ type: 'section', chapterIndex: 0, sectionIndex: 0, quiz: null });
+          } else if (firstChapter.quiz) {
+            setCurrentContent({ type: 'quiz', chapterIndex: 0, sectionIndex: null, quiz: firstChapter.quiz });
+          }
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError(err.response?.data?.message || 'Erreur lors du chargement du cours');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id, user]);
+
+  // Fetch student messages for etudiant
+  useEffect(() => {
+    if (user && user.role === 'etudiant' && isSubscribed) {
+      fetchStudentMessages();
+    }
+  }, [user, isSubscribed]);
 
   const fetchUnreadMessagesCount = async () => {
     try {
@@ -69,57 +115,14 @@ const CourseDetail = () => {
       const response = await api.get('/messages/student', {
         headers: { Authorization: `Bearer ${user.token}` }
       });
-
-      const allMessages = response.data.data || [];
-
-      // Filtrer uniquement les messages du cours courant
-      const filtered = allMessages.filter(
+      const filtered = (response.data.data || []).filter(
         (msg) => msg.course && msg.course._id === id
       );
-
       setStudentMessages(filtered);
     } catch (err) {
       console.error('Error fetching student messages:', err);
     }
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        const [courseRes, subscriptionRes] = await Promise.all([
-          api.get(`/courses/${id}`),
-          user ? api.get(`/courses/${id}/check-subscription`, {
-            headers: { Authorization: `Bearer ${user.token}` }
-          }) : Promise.resolve({ data: { isSubscribed: false } })
-        ]);
-
-        const courseData = courseRes.data.data;
-        if (!courseData.chapters) courseData.chapters = [];
-        
-        setCourse(courseData);
-        setIsSubscribed(subscriptionRes.data.isSubscribed);
-
-        if (subscriptionRes.data.isSubscribed && courseData.chapters.length > 0 && courseData.chapters[0].sections.length > 0) {
-          setCurrentContent({ type: 'section', chapterIndex: 0, sectionIndex: 0, quiz: null });
-        }
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setError(err.response?.data?.message || 'Erreur lors du chargement du cours');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [id, user]);
-
-  useEffect(() => {
-    if (user && user.role === 'etudiant' && isSubscribed) {
-      fetchStudentMessages();
-    }
-  }, [user, isSubscribed]);
 
   const toggleChapter = (chapterIndex) => {
     setExpandedChapters((prev) =>
@@ -130,8 +133,16 @@ const CourseDetail = () => {
   };
 
   const handleSectionClick = async (chapterIndex, sectionIndex) => {
-    if (!isSubscribed) return;
-    
+    if (!isSubscribed) {
+      toast.warn('Vous devez vous abonner pour accéder au contenu.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    if (!isValidContent(chapterIndex, sectionIndex, 'section')) return;
+
     setCurrentContent({ type: 'section', chapterIndex, sectionIndex, quiz: null });
     setQuizResult(null);
     setQuizAnswers({});
@@ -142,21 +153,34 @@ const CourseDetail = () => {
       await api.post(
         `/courses/${id}/sections`,
         { chapterId, sectionId },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { Authorization: `Bearer ${user.token}` } }
       );
-
       const response = await api.get(`/courses/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(response.data.data);
+      
     } catch (err) {
       console.error('Progress update error:', err);
       setError('Erreur lors de la mise à jour de la progression');
+      toast.error('Erreur lors de la mise à jour de la progression.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     }
   };
 
   const handleQuizClick = (chapterIndex, quiz) => {
-    if (!isSubscribed) return;
+    if (!isSubscribed) {
+      toast.warn('Vous devez vous abonner pour accéder au quiz.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    if (!isValidContent(chapterIndex, null, 'quiz')) return;
+
     setCurrentContent({ type: 'quiz', chapterIndex, sectionIndex: null, quiz });
     setQuizResult(null);
     setQuizAnswers({});
@@ -167,36 +191,49 @@ const CourseDetail = () => {
     setQuizAnswers((prev) => {
       if (isMultiple) {
         const currentAnswers = prev[questionId] || [];
-        if (currentAnswers.includes(optionIndex)) {
-          return {
-            ...prev,
-            [questionId]: currentAnswers.filter((i) => i !== optionIndex),
-          };
-        }
-        return { ...prev, [questionId]: [...currentAnswers, optionIndex] };
-      } else {
-        return { ...prev, [questionId]: [optionIndex] };
+        return {
+          ...prev,
+          [questionId]: currentAnswers.includes(optionIndex)
+            ? currentAnswers.filter((i) => i !== optionIndex)
+            : [...currentAnswers, optionIndex],
+        };
       }
+      return { ...prev, [questionId]: [optionIndex] };
     });
   };
 
   const handleQuizSubmit = async () => {
-    if (!isSubscribed) return;
+    if (!isSubscribed) {
+      toast.warn('Vous devez vous abonner pour soumettre le quiz.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
     try {
       const chapterId = course.chapters[currentContent.chapterIndex]._id;
       const response = await api.post(
         `/courses/${id}/quizzes`,
         { chapterId, answers: quizAnswers },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
+        { headers: { Authorization: `Bearer ${user.token}` }}
       );
       setQuizResult({ score: response.data.data.score, submitted: true });
       const courseResponse = await api.get(`/courses/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(courseResponse.data.data);
+      toast.success(`Quiz soumis ! Score: ${response.data.data.score}%`, {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     } catch (err) {
       console.error('Quiz submission error:', err);
       setError('Erreur lors de la soumission du quiz');
+      toast.error('Erreur lors de la soumission du quiz.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     }
   };
 
@@ -212,41 +249,120 @@ const CourseDetail = () => {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(response.data.data);
+      // Initialize content after subscription
+      if (response.data.data.chapters.length > 0) {
+        const firstChapter = response.data.data.chapters[0];
+        if (firstChapter.sections.length > 0) {
+          setCurrentContent({ type: 'section', chapterIndex: 0, sectionIndex: 0, quiz: null });
+        } else if (firstChapter.quiz) {
+          setCurrentContent({ type: 'quiz', chapterIndex: 0, sectionIndex: null, quiz: firstChapter.quiz });
+        }
+      }
+      toast.success('Abonnement réussi ! Vous pouvez maintenant accéder au contenu.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     } catch (err) {
       console.error('Subscription error:', err);
       setError("Erreur lors de l'abonnement au cours");
+      toast.error("Erreur lors de l'abonnement au cours.", {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     }
   };
 
   const handleAskQuestion = () => {
     if (!isSubscribed) {
       setError('Vous devez être abonné pour poser des questions');
+      toast.error('Vous devez être abonné pour poser des questions.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
       return;
     }
     setShowQuestionForm(true);
   };
 
-  // Fonction pour extraire l'ID d'une vidéo YouTube
+  const isValidContent = (chapterIndex, sectionIndex, type) => {
+    if (chapterIndex < 0 || chapterIndex >= course.chapters.length) return false;
+    if (type === 'section' && (sectionIndex < 0 || sectionIndex >= course.chapters[chapterIndex].sections.length)) {
+      return false;
+    }
+    if (type === 'quiz' && !course.chapters[chapterIndex].quiz) return false;
+    return true;
+  };
+
+  const navigateToNextContent = () => {
+    if (!isSubscribed) return;
+
+    const { chapterIndex, sectionIndex, type } = currentContent;
+    const currentChapter = course.chapters[chapterIndex];
+
+    if (type === 'section' && sectionIndex !== null) {
+      if (sectionIndex + 1 < currentChapter.sections.length) {
+        handleSectionClick(chapterIndex, sectionIndex + 1);
+      } else if (currentChapter.quiz) {
+        handleQuizClick(chapterIndex, currentChapter.quiz);
+      } else if (chapterIndex + 1 < course.chapters.length) {
+        const nextChapter = course.chapters[chapterIndex + 1];
+        if (nextChapter.sections.length > 0) {
+          handleSectionClick(chapterIndex + 1, 0);
+        } else if (nextChapter.quiz) {
+          handleQuizClick(chapterIndex + 1, nextChapter.quiz);
+        }
+      }
+    } else if (type === 'quiz' && chapterIndex + 1 < course.chapters.length) {
+      const nextChapter = course.chapters[chapterIndex + 1];
+      if (nextChapter.sections.length > 0) {
+        handleSectionClick(chapterIndex + 1, 0);
+      } else if (nextChapter.quiz) {
+        handleQuizClick(chapterIndex + 1, nextChapter.quiz);
+      }
+    }
+  };
+
+  const navigateToPreviousContent = () => {
+    if (!isSubscribed) return;
+
+    const { chapterIndex, sectionIndex, type } = currentContent;
+    const currentChapter = course.chapters[chapterIndex];
+    
+    if (type === 'section' && sectionIndex > 0) {
+      handleSectionClick(chapterIndex, sectionIndex - 1);
+    } else if (type === 'section' && sectionIndex === 0 && chapterIndex > 0) {
+      const prevChapter = course.chapters[chapterIndex - 1];
+      if (prevChapter.quiz) {
+        handleQuizClick(chapterIndex - 1, prevChapter.quiz);
+      } else if (prevChapter.sections.length > 0) {
+        handleSectionClick(chapterIndex - 1, prevChapter.sections.length - 1);
+      }
+    } else if (type === 'quiz' && currentChapter.sections.length > 0) {
+      handleSectionClick(chapterIndex, currentChapter.sections.length - 1);
+    } else if (type === 'quiz' && chapterIndex > 0) {
+      const prevChapter = course.chapters[chapterIndex - 1];
+      if (prevChapter.quiz) {
+        handleQuizClick(chapterIndex - 1, prevChapter.quiz);
+      } else if (prevChapter.sections.length > 0) {
+        handleSectionClick(chapterIndex - 1, prevChapter.sections.length - 1);
+      }
+    }
+  };
+
   const getYouTubeId = (url) => {
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[7].length === 11) ? match[7] : null;
   };
 
-  // Fonction pour déterminer le type de vidéo
   const getVideoType = (url) => {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      return 'youtube';
-    } else if (url.includes('vimeo.com')) {
-      return 'vimeo';
-    } else if (url.match(/\.(mp4|webm|ogg)$/i)) {
-      return 'direct';
-    } else {
-      return 'unknown';
-    }
+    if (!url) return 'none';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+    if (url.includes('vimeo.com')) return 'vimeo';
+    if (url.match(/\.(mp4|webm|ogg)$/i)) return 'direct';
+    return 'unknown';
   };
 
-  // Composant pour afficher la vidéo en fonction de son type
   const VideoPlayer = ({ url, title }) => {
     if (!url) return null;
     
@@ -266,7 +382,6 @@ const CourseDetail = () => {
             />
           </div>
         );
-      
       case 'vimeo':
         const vimeoId = url.split('/').pop();
         return (
@@ -280,7 +395,6 @@ const CourseDetail = () => {
             />
           </div>
         );
-      
       case 'direct':
         return (
           <div className="video-container">
@@ -290,7 +404,6 @@ const CourseDetail = () => {
             </video>
           </div>
         );
-      
       default:
         return (
           <div className="video-error">
@@ -300,10 +413,9 @@ const CourseDetail = () => {
     }
   };
 
-  // Composant pour afficher les messages de l'étudiant
   const StudentMessagesPanel = ({ messages, onClose }) => {
     const [expandedMessages, setExpandedMessages] = useState([]);
-    const [filter, setFilter] = useState('all'); // 'all', 'answered', 'pending'
+    const [filter, setFilter] = useState('all');
 
     const formatDate = (dateString) => {
       return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -341,8 +453,6 @@ const CourseDetail = () => {
               &times;
             </button>
           </div>
-
-          {/* Filtres et statistiques */}
           <div className="messages-filters">
             <div className="filter-buttons">
               <button 
@@ -365,7 +475,6 @@ const CourseDetail = () => {
               </button>
             </div>
           </div>
-          
           <div className="student-messages-list">
             {filteredMessages.length === 0 ? (
               <div className="no-messages">
@@ -405,14 +514,12 @@ const CourseDetail = () => {
                       {expandedMessages.includes(message._id) ? '−' : '+'}
                     </span>
                   </div>
-                  
                   {expandedMessages.includes(message._id) && (
                     <div className="message-details">
                       <div className="message-question-full">
                         <h5>Votre question:</h5>
                         <p className="question-text">{message.question}</p>
                       </div>
-                      
                       {message.response ? (
                         <div className="message-response">
                           <h5>Réponse du formateur:</h5>
@@ -438,7 +545,8 @@ const CourseDetail = () => {
   const safeChapters = course.chapters || [];
   const currentSection =
     currentContent.type === 'section' &&
-    safeChapters[currentContent.chapterIndex]?.sections[currentContent.sectionIndex];
+    isValidContent(currentContent.chapterIndex, currentContent.sectionIndex, 'section') ?
+    safeChapters[currentContent.chapterIndex].sections[currentContent.sectionIndex] : null;
   const currentQuiz = currentContent.type === 'quiz' && currentContent.quiz;
 
   if (loading) {
@@ -458,13 +566,13 @@ const CourseDetail = () => {
 
   return (
     <div className="detail-course-container">
+      <ToastContainer />
       <aside className="course-sidebar">
-        <button onClick={handleBackToDashboard} className="back-button">
+        <button onClick={() => navigate(user?.role === 'formateur' ? '/formateur' : '/etudiant')} className="back-button">
           <FiArrowLeft className="back-icon" />
           Retour au tableau de bord
         </button>
-
-        <h2 className="course-title">{course.title}</h2>
+        <h2 className="course-title">{course.title || 'Cours sans titre'}</h2>
         {isSubscribed ? (
           <div className="progress-info">
             Progression: {course.progress?.overallProgress || 0}%
@@ -472,12 +580,11 @@ const CourseDetail = () => {
         ) : (
           <div className="subscribe-message">
             <p>Vous devez vous abonner pour accéder au contenu</p>
-            {user && (
+            {user ? (
               <button onClick={handleSubscribe} className="subscribe-button">
                 S'abonner
               </button>
-            )}
-            {!user && (
+            ) : (
               <button 
                 onClick={() => navigate('/login')} 
                 className="subscribe-button"
@@ -487,7 +594,6 @@ const CourseDetail = () => {
             )}
           </div>
         )}
-        
         {isSubscribed && (
           <nav className="chapters-list">
             {safeChapters.length === 0 ? (
@@ -502,11 +608,7 @@ const CourseDetail = () => {
                 >
                   <button className="chapter-header" onClick={() => toggleChapter(chapterIndex)}>
                     <span className="chapter-icon">
-                      {expandedChapters.includes(chapterIndex) ? (
-                        <FiChevronDown />
-                      ) : (
-                        <FiChevronRight />
-                      )}
+                      {expandedChapters.includes(chapterIndex) ? <FiChevronDown /> : <FiChevronRight />}
                     </span>
                     <span className="chapter-title">
                       Chapitre {chapterIndex + 1}: {chapter.title}
@@ -603,18 +705,36 @@ const CourseDetail = () => {
         ) : currentContent.type === 'section' && currentSection ? (
           <div className="section-content">
             <h3 className="section-title">{currentSection.title}</h3>
-            
-            {/* Affichage de la vidéo intégrée dans le contenu */}
             {currentSection.videoUrl && (
               <VideoPlayer url={currentSection.videoUrl} title={currentSection.title} />
             )}
-            
             <div 
               className="text-content" 
               dangerouslySetInnerHTML={{ __html: currentSection.content || 'Aucun contenu disponible' }}
             />
-            
-            {/* Boutons flottants */}
+            <div className="content-navigation">
+              <button
+                className="nav-button prev"
+                onClick={navigateToPreviousContent}
+                disabled={
+                  currentContent.chapterIndex === 0 && 
+                  currentContent.sectionIndex === 0
+                }
+              >
+                <FiArrowLeftNav /> Précédent
+              </button>
+              <button
+                className="nav-button next"
+                onClick={navigateToNextContent}
+                disabled={
+                  currentContent.chapterIndex === safeChapters.length - 1 &&
+                  currentContent.sectionIndex === safeChapters[currentContent.chapterIndex].sections.length - 1 &&
+                  !safeChapters[currentContent.chapterIndex].quiz
+                }
+              >
+                Suivant <FiArrowRight />
+              </button>
+            </div>
             {isSubscribed && (
               <div className="floating-question-buttons">
                 <button 
@@ -623,7 +743,6 @@ const CourseDetail = () => {
                 >
                   <FiMessageSquare /> Poser une question
                 </button>
-
                 {studentMessages.length > 0 && (
                   <button 
                     className="view-messages-btn"
@@ -634,7 +753,6 @@ const CourseDetail = () => {
                 )}
               </div>
             )}
-
           </div>
         ) : currentContent.type === 'quiz' && currentQuiz ? (
           <div className="quiz-content">
@@ -662,6 +780,22 @@ const CourseDetail = () => {
                 >
                   Refaire le quiz
                 </button>
+                <div className="content-navigation">
+                  <button
+                    className="nav-button prev"
+                    onClick={navigateToPreviousContent}
+                    disabled={currentContent.chapterIndex === 0 && safeChapters[currentContent.chapterIndex].sections.length === 0}
+                  >
+                    <FiArrowLeftNav /> Précédent
+                  </button>
+                  <button
+                    className="nav-button next"
+                    onClick={navigateToNextContent}
+                    disabled={currentContent.chapterIndex === safeChapters.length - 1}
+                  >
+                    Suivant <FiArrowRight />
+                  </button>
+                </div>
               </div>
             ) : quizResult?.submitted ? (
               <div className="quiz-result">
@@ -676,6 +810,22 @@ const CourseDetail = () => {
                 >
                   Réessayer
                 </button>
+                <div className="content-navigation">
+                  <button
+                    className="nav-button prev"
+                    onClick={navigateToPreviousContent}
+                    disabled={currentContent.chapterIndex === 0 && safeChapters[currentContent.chapterIndex].sections.length === 0}
+                  >
+                    <FiArrowLeftNav /> Précédent
+                  </button>
+                  <button
+                    className="nav-button next"
+                    onClick={navigateToNextContent}
+                    disabled={currentContent.chapterIndex === safeChapters.length - 1}
+                  >
+                    Suivant <FiArrowRight />
+                  </button>
+                </div>
               </div>
             ) : (
               <form
@@ -696,7 +846,7 @@ const CourseDetail = () => {
                           checked={(quizAnswers[question._id] || []).includes(oIndex)}
                           onChange={() => handleAnswerChange(question._id, oIndex, question.multipleAnswers)}
                         />
-                        {option.text || option}
+                        {typeof option === 'string' ? option : option.text || `Option ${oIndex + 1}`}
                       </label>
                     ))}
                   </div>
@@ -704,6 +854,24 @@ const CourseDetail = () => {
                 <button type="submit" className="quiz-submit-button">
                   Soumettre
                 </button>
+                <div className="content-navigation">
+                  <button
+                    type="button"
+                    className="nav-button prev"
+                    onClick={navigateToPreviousContent}
+                    disabled={currentContent.chapterIndex === 0 && safeChapters[currentContent.chapterIndex].sections.length === 0}
+                  >
+                    <FiArrowLeftNav /> Précédent
+                  </button>
+                  <button
+                    type="button"
+                    className="nav-button next"
+                    onClick={navigateToNextContent}
+                    disabled={currentContent.chapterIndex === safeChapters.length - 1}
+                  >
+                    Suivant <FiArrowRight />
+                  </button>
+                </div>
               </form>
             )}
           </div>
@@ -711,21 +879,23 @@ const CourseDetail = () => {
           <div className="no-content">Aucun contenu sélectionné</div>
         )}
       </main>
-      
       {showQuestionForm && (
         <QuestionForm 
           courseId={id}
-          chapterId={course.chapters[currentContent.chapterIndex]._id}
-          sectionId={currentSection._id}
+          chapterId={safeChapters[currentContent.chapterIndex]?._id}
+          sectionId={currentSection?._id}
           onClose={() => setShowQuestionForm(false)}
           user={user}
           onQuestionSent={() => {
             setShowQuestionForm(false);
-            fetchStudentMessages(); // Recharger les messages après envoi
+            fetchStudentMessages();
+            toast.success('Question envoyée avec succès !', {
+              position: 'top-right',
+              autoClose: 3000,
+            });
           }}
         />
       )}
-      
       {showMessagesPanel && (
         <StudentMessagesPanel 
           messages={studentMessages}

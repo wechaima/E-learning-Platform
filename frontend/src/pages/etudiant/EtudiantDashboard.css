@@ -73,6 +73,9 @@
 .search-container {
   flex: 1;
   max-width: 600px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .search-bar {
@@ -82,6 +85,7 @@
   border-radius: 8px;
   padding: 8px 15px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  flex: 1;
 }
 
 .search-bar input {
@@ -91,6 +95,38 @@
   padding: 8px;
   font-size: 16px;
   outline: none;
+}
+
+.category-button {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.category-button:hover {
+  background: #4139cc;
+}
+
+.category-icon {
+  font-size: 18px;
+}
+
+.category-item {
+  padding: 10px 15px;
+  font-size: 16px;
+}
+
+.category-item.active {
+  background-color: #4f46e5;
+  color: white;
 }
 
 .user-info {
@@ -211,6 +247,13 @@
   font-size: 14px;
 }
 
+.course-category {
+  margin-top: 10px;
+  color: #4f46e5;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .no-results {
   grid-column: 1 / -1;
   text-align: center;
@@ -297,8 +340,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 24px; /* ↑ taille du bouton */
-  font-size: 10px;     /* ↑ taille du texte */
+  padding: 14px 24px;
+  font-size: 10px;
   background: #7e57c2;
   color: white;
   border: none;
@@ -306,9 +349,8 @@
   cursor: pointer;
   transition: background-color 0.3s;
   margin-top: 20px;
-  min-width: 150px;    /* optionnel : assure une certaine largeur */
+  min-width: 150px;
 }
-
 
 .edit-btn:hover {
   background: #6d4caf;
@@ -532,6 +574,8 @@
   
   .search-container {
     max-width: 100%;
+    flex-direction: column;
+    gap: 10px;
   }
   
   .user-info {
@@ -552,6 +596,7 @@
     width: 100%;
   }
 }
+
 /* Styles pour les statistiques */
 .user-stats {
   display: flex;
@@ -636,7 +681,9 @@
   font-size: 1.2rem;
   font-weight: bold;
   color: #333;
-}/* Styles pour le modal de profil */
+}
+
+/* Styles pour le modal de profil */
 .profile-modal {
   position: absolute;
   top: 50%;

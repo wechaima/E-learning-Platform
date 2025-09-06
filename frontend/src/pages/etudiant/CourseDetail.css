@@ -183,7 +183,6 @@
   border-bottom: 2px solid #e2e8f0;
 }
 
-/* Taille de vidéo réduite */
 .video-container {
   position: relative;
   width: 100%;
@@ -399,7 +398,6 @@
   font-size: 0.9rem;
 }
 
-/* Navigation buttons for long content */
 .content-navigation {
   display: flex;
   justify-content: space-between;
@@ -441,75 +439,6 @@
   background: #4a5568;
 }
 
-/* Responsive design */
-@media (max-width: 1024px) {
-  .course-sidebar {
-    width: 220px;
-  }
-  
-  .section-content {
-    padding: 1.2rem;
-  }
-  
-  .video-container iframe {
-    height: 320px;
-  }
-}
-
-@media (max-width: 768px) {
-  .detail-course-container {
-    flex-direction: column;
-  }
-  
-  .course-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #e0e0e0;
-    padding: 0.8rem;
-  }
-  
-  .section-content {
-    padding: 1rem;
-  }
-  
-  .section-title {
-    font-size: 1.3rem;
-  }
-  
-  .video-container iframe {
-    height: 280px;
-  }
-  
-  .quiz-content {
-    padding: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .section-content {
-    padding: 0.8rem;
-  }
-  
-  .section-title {
-    font-size: 1.1rem;
-  }
-  
-  .video-container iframe {
-    height: 220px;
-  }
-  
-  .content-navigation {
-    flex-direction: column;
-    gap: 0.8rem;
-  }
-  
-  .nav-button {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-/* Indicateur de vidéo dans la sidebar */
 .section.has-video .section-content {
   display: flex;
   align-items: center;
@@ -527,7 +456,8 @@
   font-size: 0.8rem;
   margin: 0;
   line-height: 1.2;
-}/* Conteneur flottant en bas à droite */
+}
+
 .floating-question-buttons {
   position: fixed;
   bottom: 20px;
@@ -538,7 +468,6 @@
   z-index: 1000;
 }
 
-/* Boutons stylisés */
 .ask-question-btn,
 .view-messages-btn {
   background: #3182ce;
@@ -569,7 +498,7 @@
 .view-messages-btn:hover {
   background: #2f855a;
 }
-/* Styles pour le panneau des messages étudiant */
+
 .student-messages-overlay {
   position: fixed;
   top: 0;
@@ -791,23 +720,242 @@
   font-size: 1.1rem;
 }
 
-/* Responsive */
+/* Toast styling */
+.Toastify__toast--success {
+  background-color: #4CAF50;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.Toastify__toast--error {
+  background-color: #f44336;
+}
+
+.Toastify__toast--warning {
+  background-color: #ff9800;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .course-sidebar {
+    width: 220px;
+  }
+  .section-content {
+    padding: 1.2rem;
+  }
+  .video-container iframe {
+    height: 320px;
+  }
+}
+
 @media (max-width: 768px) {
+  .detail-course-container {
+    flex-direction: column;
+  }
+  .course-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 0.8rem;
+  }
+  .section-content {
+    padding: 1rem;
+  }
+  .section-title {
+    font-size: 1.3rem;
+  }
+  .video-container iframe {
+    height: 280px;
+  }
+  .quiz-content {
+    padding: 1rem;
+  }
   .student-messages-container {
     width: 95%;
     height: 90vh;
   }
-  
   .filter-buttons {
     flex-direction: column;
   }
-  
   .message-summary {
     flex-direction: column;
   }
-  
   .expand-icon {
     align-self: flex-end;
     margin-top: 10px;
   }
+}
+
+@media (max-width: 480px) {
+  .section-content {
+    padding: 0.8rem;
+  }
+  .section-title {
+    font-size: 1.1rem;
+  }
+  .video-container iframe {
+    height: 220px;
+  }
+  .content-navigation {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .nav-button {
+    width: 100%;
+    justify-content: center;
+  }
+}/* Styles pour la coloration syntaxique du code */
+.ql-syntax {
+  background-color: #1a1a1a !important;
+  color: #f8f8f2 !important;
+  padding: 1rem !important;
+  border-radius: 4px !important;
+  overflow-x: auto !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  margin: 1rem 0 !important;
+  border: 1px solid #333 !important;
+}
+
+/* Styles spécifiques pour la coloration syntaxique */
+.ql-syntax .hljs-comment,
+.ql-syntax .hljs-quote {
+  color: #6a9955 !important;
+  font-style: italic !important;
+}
+
+.ql-syntax .hljs-keyword,
+.ql-syntax .hljs-selector-tag,
+.ql-syntax .hljs-subst {
+  color: #569cd6 !important;
+}
+
+.ql-syntax .hljs-number,
+.ql-syntax .hljs-literal,
+.ql-syntax .hljs-variable,
+.ql-syntax .hljs-template-variable,
+.ql-syntax .hljs-tag .hljs-attr {
+  color: #b5cea8 !important;
+}
+
+.ql-syntax .hljs-string,
+.ql-syntax .hljs-doctag {
+  color: #ce9178 !important;
+}
+
+.ql-syntax .hljs-title,
+.ql-syntax .hljs-section,
+.ql-syntax .hljs-selector-id {
+  color: #d7ba7d !important;
+}
+
+.ql-syntax .hljs-subst {
+  font-weight: normal !important;
+}
+
+.ql-syntax .hljs-type,
+.ql-syntax .hljs-class .hljs-title {
+  color: #4ec9b0 !important;
+}
+
+.ql-syntax .hljs-tag,
+.ql-syntax .hljs-name,
+.ql-syntax .hljs-attribute {
+  color: #9cdcfe !important;
+}
+
+.ql-syntax .hljs-regexp,
+.ql-syntax .hljs-link {
+  color: #d16969 !important;
+}
+
+.ql-syntax .hljs-symbol,
+.ql-syntax .hljs-bullet {
+  color: #dcdcaa !important;
+}
+
+.ql-syntax .hljs-built_in,
+.ql-syntax .hljs-builtin-name {
+  color: #4fc1ff !important;
+}
+
+.ql-syntax .hljs-meta {
+  color: #808080 !important;
+}
+
+.ql-syntax .hljs-deletion {
+  background: #600 !important;
+}
+
+.ql-syntax .hljs-addition {
+  background: #144212 !important;
+}
+
+.ql-syntax .hljs-emphasis {
+  font-style: italic !important;
+}
+
+.ql-syntax .hljs-strong {
+  font-weight: bold !important;
+}
+
+/* Barre de défilement pour les blocs de code */
+.ql-syntax::-webkit-scrollbar {
+  height: 8px;
+}
+
+.ql-syntax::-webkit-scrollbar-track {
+  background: #2d2d2d;
+  border-radius: 4px;
+}
+
+.ql-syntax::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.ql-syntax::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+/* Styles pour les blocs de code dans le contenu */
+.text-content pre {
+  position: relative;
+  margin: 1.5rem 0;
+}
+
+.text-content pre .ql-syntax {
+  position: relative;
+}
+
+/* Indicateur de langage (optionnel) */
+.text-content pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #333;
+  color: #fff;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-bottom-left-radius: 4px;
+  z-index: 1;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Amélioration de l'affichage du code */
+.text-content code {
+  background-color: #f5f5f5;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 0.9em;
+  color: #d63384;
+}
+
+.text-content pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
 }
