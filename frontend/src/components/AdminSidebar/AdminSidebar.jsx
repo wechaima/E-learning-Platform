@@ -75,7 +75,7 @@ const AdminSidebar = ({
           Admins
         </button>
         
-        <button
+        {/* <button
           className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => {
             setActiveTab('settings');
@@ -84,7 +84,7 @@ const AdminSidebar = ({
         >
           <FaCog className="nav-icon" />
           Paramètres
-        </button>
+        </button> */}
       </nav>
       
       <div className="sidebar-footer">

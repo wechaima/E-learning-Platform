@@ -5,6 +5,7 @@ import Quiz from '../models/Quiz.js';
 import Question from '../models/Question.js';
 import Progress from '../models/Progress.js';
 import mongoose from 'mongoose';  
+import { sendCourseUpdateEmail } from '../services/emailService.js';
 // Créer un nouveau cours avec chapitres
 export const createCourse = async (req, res) => {
   try {
@@ -70,7 +71,10 @@ export const createCourse = async (req, res) => {
               text: question.text,
               options: question.options.map((opt, index) => ({
                 text: opt,
-                isCorrect: index === question.correctOption
+                // Gestion des réponses multiples
+                isCorrect: Array.isArray(question.correctOption) 
+                  ? question.correctOption.includes(index)
+                  : index === question.correctOption
               })),
               explanation: question.explanation,
               quizId: newQuiz._id
@@ -388,13 +392,11 @@ export const getAllCourses = async (req, res) => {
   }
 };
 
-// Mettre à jour un cours
 export const updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, imageUrl, category, chapters } = req.body;
 
-    // Validation de l'ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -402,7 +404,6 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Trouver le cours existant
     let course = await Course.findById(id);
     if (!course) {
       return res.status(404).json({
@@ -411,7 +412,6 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Vérifier les permissions
     if (course.createdBy.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
@@ -419,20 +419,24 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // Mettre à jour les champs de base
+    // Sauvegarde de l'ancien état pour comparaison
+    const oldChapterIds = course.chapters.map(c => c.toString());
+
+    // Mise à jour des champs de base
     course.title = title || course.title;
     course.description = description || course.description;
     course.imageUrl = imageUrl || course.imageUrl;
     course.category = category || course.category;
 
     // Gestion des chapitres
-    if (chapters && Array.isArray(chapters)) {
-      const newChapterIds = [];
+    let newChapterIds = [];
+    let lastAddedChapter = null;
 
+    if (chapters && Array.isArray(chapters)) {
       for (const chapterData of chapters) {
         let chapter;
 
-        // Si le chapitre a un _id, on le met à jour
+        // Mise à jour du chapitre existant
         if (chapterData._id && mongoose.Types.ObjectId.isValid(chapterData._id)) {
           chapter = await Chapter.findById(chapterData._id);
           if (chapter) {
@@ -442,7 +446,7 @@ export const updateCourse = async (req, res) => {
           }
         }
 
-        // Sinon, on crée un nouveau chapitre
+        // Création d'un nouveau chapitre
         if (!chapter) {
           chapter = new Chapter({
             title: chapterData.title,
@@ -450,11 +454,11 @@ export const updateCourse = async (req, res) => {
             order: chapterData.order || chapters.length
           });
           await chapter.save();
+          lastAddedChapter = chapter; // Garder trace du dernier ajout
         }
 
         // Gestion des sections
         if (chapterData.sections && Array.isArray(chapterData.sections)) {
-          // Supprimer les anciennes sections
           await Section.deleteMany({ chapterId: chapter._id });
 
           const sections = await Section.insertMany(
@@ -472,9 +476,8 @@ export const updateCourse = async (req, res) => {
 
         // Gestion du quiz
         if (chapterData.quiz && chapterData.quiz.questions) {
-          // Supprimer l'ancien quiz
           await Quiz.deleteMany({ chapterId: chapter._id });
-          await Question.deleteMany({ quizId: { $in: await Quiz.find({ chapterId: chapter._id }).select('_id') } });
+          await Question.deleteMany({ quizId: { $in: await Quiz.find({ chapterId: chapter._id }).select('_id') }});
 
           const quiz = new Quiz({
             passingScore: chapterData.quiz.passingScore || 70,
@@ -483,12 +486,31 @@ export const updateCourse = async (req, res) => {
           const savedQuiz = await quiz.save();
 
           const questions = await Question.insertMany(
-            chapterData.quiz.questions.map(question => ({
-              text: question.text,
-              options: question.options,
-              explanation: question.explanation,
-              quizId: savedQuiz._id
-            }))
+            chapterData.quiz.questions.map(question => {
+              // Vérifier la structure des réponses correctes
+              let correctOptions = [];
+              if (Array.isArray(question.correctOption)) {
+                correctOptions = question.correctOption;
+              } else if (typeof question.correctOption === 'number') {
+                correctOptions = [question.correctOption];
+              } else if (question.options && question.options.some(opt => opt.isCorrect)) {
+                // Si les réponses correctes sont stockées dans les options
+                correctOptions = question.options
+                  .map((opt, index) => (opt.isCorrect ? index : -1))
+                  .filter(index => index !== -1);
+              }
+
+              return {
+                text: question.text,
+                options: question.options.map((opt, i) => ({
+                  text: typeof opt === 'string' ? opt : opt.text || '',
+                  // Déterminer si cette option est correcte
+                  isCorrect: correctOptions.includes(i)
+                })),
+                explanation: question.explanation,
+                quizId: savedQuiz._id
+              };
+            })
           );
 
           savedQuiz.questions = questions.map(q => q._id);
@@ -501,15 +523,14 @@ export const updateCourse = async (req, res) => {
         newChapterIds.push(chapter._id);
       }
 
-      // Supprimer les chapitres qui ne sont plus dans la liste
+      // Suppression des chapitres supprimés
       await Chapter.deleteMany({ courseId: id, _id: { $nin: newChapterIds } });
       course.chapters = newChapterIds;
     }
 
-    // Sauvegarder les modifications
     await course.save();
 
-    // Peupler les relations pour la réponse
+    // Récupération complète avec les followers
     const populatedCourse = await Course.findById(course._id)
       .populate({
         path: 'chapters',
@@ -519,7 +540,23 @@ export const updateCourse = async (req, res) => {
         ],
         options: { sort: { order: 1 } }
       })
-      .populate('createdBy', 'prenom nom');
+      .populate('createdBy', 'prenom nom')
+      .populate('followers', 'email');
+
+    // Détection des modifications importantes
+    const hasNewChapters = newChapterIds.some(id => !oldChapterIds.includes(id.toString()));
+    const chapterToNotify = hasNewChapters ? 
+      populatedCourse.chapters.find(c => !oldChapterIds.includes(c._id.toString())) : 
+      populatedCourse.chapters[populatedCourse.chapters.length - 1];
+
+    // Envoi des notifications
+    if (populatedCourse.followers && populatedCourse.followers.length > 0) {
+      await sendCourseUpdateEmail(
+        populatedCourse, 
+        chapterToNotify, 
+        populatedCourse.followers
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -564,33 +601,62 @@ export const deleteCourse = async (req, res) => {
       });
     }
 
-    // Supprimer toutes les relations
-    const chapterIds = course.chapters;
-    
-    await Promise.all([
-      // Supprimer les sections
-      Section.deleteMany({ chapterId: { $in: chapterIds } }),
-      // Supprimer les quiz et questions
-      Quiz.deleteMany({ chapterId: { $in: chapterIds } }),
-      Question.deleteMany({ quizId: { $in: (await Quiz.find({ chapterId: { $in: chapterIds } })).map(q => q._id) }}),
-      // Supprimer les chapitres
-      Chapter.deleteMany({ _id: { $in: chapterIds } }),
-      // Supprimer les progressions
-      Progress.deleteMany({ courseId: id }),
-      // Finalement supprimer le cours
-      Course.deleteOne({ _id: id })
-    ]);
+    // Récupérer tous les chapitres du cours
+    const chapters = await Chapter.find({ courseId: id });
+    const chapterIds = chapters.map(chapter => chapter._id);
 
-    res.status(200).json({
-      success: true,
-      message: 'Cours supprimé avec succès',
-      data: { id }
-    });
+    // Récupérer tous les quiz des chapitres
+    const quizzes = await Quiz.find({ chapterId: { $in: chapterIds } });
+    const quizIds = quizzes.map(quiz => quiz._id);
+
+    // Récupérer toutes les sections des chapitres
+    const sections = await Section.find({ chapterId: { $in: chapterIds } });
+    const sectionIds = sections.map(section => section._id);
+
+    // Suppression en cascade avec transactions pour plus de sécurité
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // 1. Supprimer toutes les questions des quiz
+      await Question.deleteMany({ quizId: { $in: quizIds } }).session(session);
+
+      // 2. Supprimer tous les quiz
+      await Quiz.deleteMany({ _id: { $in: quizIds } }).session(session);
+
+      // 3. Supprimer toutes les sections
+      await Section.deleteMany({ _id: { $in: sectionIds } }).session(session);
+
+      // 4. Supprimer tous les chapitres
+      await Chapter.deleteMany({ _id: { $in: chapterIds } }).session(session);
+
+      // 5. Supprimer toutes les progressions
+      await Progress.deleteMany({ courseId: id }).session(session);
+
+      // 6. Finalement supprimer le cours
+      await Course.deleteOne({ _id: id }).session(session);
+
+      await session.commitTransaction();
+      session.endSession();
+
+      res.status(200).json({
+        success: true,
+        message: 'Cours et tous ses éléments associés supprimés avec succès',
+        data: { id }
+      });
+
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
+    }
+
   } catch (error) {
+    console.error('Erreur lors de la suppression du cours:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression du cours',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -961,39 +1027,64 @@ export const getCourseById = async (req, res) => {
     const course = await Course.findById(id)
       .populate({
         path: 'createdBy',
-        select: 'prenom nom email role',
+        select: 'prenom nom email role'
       })
       .populate({
         path: 'chapters',
         options: { sort: { order: 1 } },
         populate: [
-          { path: 'sections', options: { sort: { order: 1 } } },
+          { 
+            path: 'sections',
+            options: { sort: { order: 1 } },
+            select: 'title content videoUrl order duration' // Ajout de content et videoUrl
+          },
           {
             path: 'quiz',
-            populate: { path: 'questions', select: 'text options.text' }, // Exclude isCorrect
-          },
-        ],
+            populate: { 
+              path: 'questions',
+              select: 'text options explanation points' // Inclure toutes les données nécessaires
+            }
+          }
+        ]
       });
 
     if (!course) {
       return res.status(404).json({ success: false, message: 'Cours non trouvé' });
     }
 
-    let progress = null;
-    if (req.user) {
-      progress = await Progress.findOne({ userId: req.user.id, courseId: id });
-    }
+    // Transformer la structure pour le frontend
+    const transformedCourse = {
+      ...course.toObject(),
+      chapters: course.chapters.map(chapter => ({
+        ...chapter.toObject(),
+        quiz: chapter.quiz ? {
+          ...chapter.quiz.toObject(),
+          questions: chapter.quiz.questions.map(question => ({
+            ...question.toObject(),
+            options: question.options.map(opt => opt.text),
+            correctOption: question.options.reduce((acc, opt, idx) => {
+              if (opt.isCorrect) acc.push(idx);
+              return acc;
+            }, []),
+            multipleAnswers: question.options.filter(opt => opt.isCorrect).length > 1
+          }))
+        } : {
+          passingScore: 70,
+          questions: []
+        }
+      }))
+    };
 
     res.status(200).json({
       success: true,
-      data: { ...course.toObject(), progress: progress || null },
+      data: transformedCourse
     });
   } catch (error) {
     console.error('Error in getCourseById:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération du cours',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -1158,7 +1249,86 @@ export const checkSubscription = async (req, res) => {
     });
   }
 };
+export const getCourseForEditing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
 
+    // Vérifier que l'utilisateur est bien le créateur du cours
+    const course = await Course.findOne({ _id: id, createdBy: userId })
+      .populate({
+        path: 'chapters',
+        options: { sort: { order: 1 } },
+        populate: [
+          { 
+            path: 'sections',
+            options: { sort: { order: 1 } }
+          },
+          {
+            path: 'quiz',
+            populate: {
+              path: 'questions',
+              select: 'text options explanation'
+            }
+          }
+        ]
+      });
+
+    if (!course) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Cours non trouvé ou vous n\'êtes pas autorisé à le modifier' 
+      });
+    }
+
+    // Transformer la structure pour le frontend
+    const transformedData = {
+      _id: course._id,
+      title: course.title,
+      description: course.description,
+      imageUrl: course.imageUrl,
+      category: course.category,
+      chapters: course.chapters.map(chapter => ({
+        _id: chapter._id,
+        title: chapter.title,
+        order: chapter.order,
+        sections: chapter.sections.map(section => ({
+          _id: section._id,
+          title: section.title,
+          content: section.content,
+          videoUrl: section.videoUrl,
+          order: section.order
+        })),
+        quiz: chapter.quiz ? {
+          _id: chapter.quiz._id,
+          passingScore: chapter.quiz.passingScore || 70,
+          questions: chapter.quiz.questions.map(question => ({
+            _id: question._id,
+            text: question.text,
+            options: question.options.map(opt => opt.text),
+            correctOption: question.options.findIndex(opt => opt.isCorrect),
+            explanation: question.explanation || ''
+          }))
+        } : {
+          passingScore: 70,
+          questions: []
+        }
+      }))
+    };
+
+    res.status(200).json({
+      success: true,
+      data: transformedData
+    });
+  } catch (error) {
+    console.error('Error in getCourseForEditing:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération du cours pour édition',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
 
 
 // controllers/courseController.js
@@ -1194,3 +1364,20 @@ export const getCoursesByCreator = async (req, res) => {
     });
   }
 };
+// Récupérer toutes les catégories distinctes
+export const getDistinctCategories = async (req, res) => {
+  try {
+    const categories = await Course.distinct('category');
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des catégories",
+      error: error.message,
+    });
+  }
+};
+

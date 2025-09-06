@@ -71,10 +71,13 @@ const CourseGrid = () => {
 
             <div className="course-details">
               <h3>{course.title}</h3>
-              <p className="description">
-                {course.description?.substring(0, 100)}
-                {course.description?.length > 100 ? '...' : ''}
-              </p>
+              <div className="description">
+                {course.description
+                  ? new DOMParser()
+                      .parseFromString(course.description, 'text/html')
+                      .body.textContent.substring(0, 100) + (course.description.length > 100 ? '...' : '')
+                  : ''}
+              </div>
 
               <div className="instructor-info">
                 <FaUserTie className="instructor-icon" />

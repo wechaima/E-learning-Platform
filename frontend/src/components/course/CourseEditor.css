@@ -1,250 +1,942 @@
 .course-editor-container {
   display: flex;
   min-height: 100vh;
-  background-color: #f8f9fa;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f9fafb;
 }
 
-/* Sidebar styles */
 .course-sidebar {
-  width: 300px;
-  background-color: #ffffff;
-  color: #2c3e50;
-  padding: 20px;
-  overflow-y: auto;
+  width: 280px;
+  background: #fff;
   border-right: 1px solid #e2e8f0;
+  padding: 1rem;
+  overflow-y: auto;
 }
 
 .sidebar-item {
-  padding: 12px;
-  margin: 5px 0;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  color: #2c3e50;
-  font-size: 14px;
 }
 
 .sidebar-item:hover {
-  background-color: #f1f5f9;
+  background: #f7fafc;
 }
 
 .sidebar-item.active {
-  background-color: #dbeafe;
-  color: #1e3a8a;
+  background: #ebf8ff;
+  border-left: 3px solid #3182ce;
 }
 
 .course-title {
-  font-size: 1.2rem;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.back-icon {
+  margin-right: 0.5rem;
 }
 
 .chapter-container {
-  margin-bottom: 15px;
+  margin-bottom: 1rem;
 }
 
 .chapter-header, .section-header, .quiz-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.sections-list {
-  margin: 10px 0 10px 20px;
-}
-
-.quiz {
-  margin-top: 10px;
-  padding: 8px;
-  background-color: #f0fdf4;
-  border-radius: 4px;
-}
-
-.quiz.active {
-  background-color: #bbf7d0;
-}
-
-.add-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: none;
-  border: 1px dashed #cbd5e1;
-  color: #64748b;
-  cursor: pointer;
-  padding: 10px;
-  width: 100%;
-  justify-content: center;
-  margin-top: 10px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.add-btn:hover {
-  background-color: #f1f5f9;
-  color: #334155;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #2d3748;
 }
 
 .delete-btn {
   background: none;
   border: none;
-  color: #ef4444;
+  color: #e53e3e;
   cursor: pointer;
-  margin-left: auto;
-  padding: 0;
+  padding: 0.2rem;
 }
 
-/* Main form styles */
+.delete-btn:hover {
+  color: #c53030;
+}
+
+.sections-list {
+  padding-left: 1rem;
+  margin-top: 0.5rem;
+}
+
+.sidebar-actions {
+  margin-top: 0.5rem;
+}
+
+.add-btn {
+  background: #3182ce;
+  color: white;
+  border: none;
+  padding: 0.5rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.add-btn:hover {
+  background: #2c5282;
+}
+
 .course-editor-form {
-  flex: 1;
-  padding: 30px;
+  flex-grow: 1;
+  padding: 1.5rem;
   overflow-y: auto;
 }
 
 .form-section {
-  background-color: white;
-  padding: 25px;
+  max-width: 800px;
+  margin: 0 auto;
+  background: #fff;
+  padding: 1.5rem;
   border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 1.2rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 0.4rem;
   font-weight: 500;
-  color: #334155;
-  font-size: 14px;
+  color: #2d3748;
 }
 
-.form-group input[type="text"],
-.form-group input[type="number"],
-.form-group input[type="file"],
-.form-group textarea {
+.form-group input,
+.form-group textarea,
+.form-group select {
   width: 100%;
-  padding: 12px;
+  padding: 0.5rem;
   border: 1px solid #e2e8f0;
   border-radius: 4px;
-  font-size: 16px;
-  box-sizing: border-box;
+  font-size: 0.9rem;
 }
 
 .form-group textarea {
-  min-height: 100px;
   resize: vertical;
+  min-height: 100px;
 }
 
 .image-preview {
-  max-width: 100%;
-  max-height: 200px;
-  margin-top: 10px;
+  max-width: 200px;
+  margin-top: 0.5rem;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
 }
 
-/* CKEditor styles */
-.ck-editor__editable {
-  min-height: 200px;
-  border: 1px solid #e2e8f0 !important;
-  font-size: 16px !important;
-  color: #333 !important;
-  padding: 10px;
-}
-
-/* Quiz styles */
 .quiz-questions {
-  margin-top: 20px;
+  margin-top: 1rem;
 }
 
 .question-card {
-  background-color: #f8fafc;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  border-left: 3px solid #4299e1;
 }
 
 .question-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 0.8rem;
+}
+
+.question-header h4 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .option-input {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .option-input input[type="text"] {
-  flex: 1;
-  padding: 12px;
-  min-height: 40px;
-  font-size: 16px;
+  flex-grow: 1;
 }
 
-.option-input input[type="radio"] {
-  width: 18px;
-  height: 18px;
+.error-message {
+  color: #e53e3e;
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
 }
 
-/* Form actions */
 .form-actions {
   display: flex;
+  gap: 1rem;
   justify-content: flex-end;
-  gap: 15px;
-  margin-top: 30px;
+  margin-top: 1.5rem;
 }
 
-.cancel-btn, .submit-btn {
-  padding: 12px 24px;
+.submit-btn,
+.cancel-btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
-}
-
-.cancel-btn {
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
-}
-
-.cancel-btn:hover {
-  background-color: #f1f5f9;
+  font-weight: 500;
+  font-size: 0.9rem;
 }
 
 .submit-btn {
-  background-color: #3b82f6;
+  background: #3182ce;
   color: white;
-  border: none;
 }
 
 .submit-btn:hover {
-  background-color: #2563eb;
+  background: #2c5282;
 }
 
-/* Responsive adjustments */
+.submit-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  background: #e2e8f0;
+  color: #2d3748;
+}
+
+.cancel-btn:hover {
+  background: #cbd5e0;
+}
+
+.editor-container {
+  position: relative;
+}
+
+.add-code-btn {
+  background: #38a169;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.add-code-btn:hover {
+  background: #2f855a;
+}
+
+.code-editor-section {
+  margin-top: 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.code-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.language-selector {
+  padding: 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.copy-btn {
+  background: #718096;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.copy-btn:hover {
+  background: #5a6268;
+}
+
+.code-editor-content {
+  display: flex;
+  gap: 1rem;
+}
+
+.code-textarea {
+  width: 50%;
+  min-height: 200px;
+  font-family: 'Fira Code', 'Fira Mono', monospace;
+  font-size: 14px;
+  background-color: #2d2d2d;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 10px;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.code-preview {
+  width: 50%;
+}
+
+.code-editor-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.insert-btn {
+  background: #3182ce;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.insert-btn:hover {
+  background: #2c5282;
+}
+
+.cancel-btn {
+  background: #e2e8f0;
+  color: #2d3748;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.cancel-btn:hover {
+  background: #cbd5e0;
+}
+
+/* Toast styling */
+.Toastify__toast--success {
+  background-color: #4c82af;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+   color: #fff;
+}
+
+.Toastify__toast--error {
+  background-color: #2196f3;
+   color: #fff;
+}
+
+.Toastify__toast--info {
+  background-color: #2196f3;
+   color: #fff;
+}
+
+/* Code block styling for preview in editor */
+pre.ql-syntax {
+  background-color: #2d2d2d;
+  color: #fff;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Fira Mono', monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/* Styles pour les nouvelles fonctionnalités */
+.editor-toolbar-extra {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Grille de symboles */
+.symbols-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.symbol-btn {
+  padding: 8px;
+  font-size: 16px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.symbol-btn:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+/* Styles pour les tableaux dans l'éditeur */
+.ql-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.ql-editor td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  min-width: 100px;
+}
+
+.ql-editor th {
+  border: 1px solid #ddd;
+  padding: 8px;
+  background-color: #f5f5f5;
+  font-weight: bold;
+  text-align: left;
+}
+
+/* Styles pour l'upload d'image */
+.image-preview-container {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.image-preview-small {
+  max-width: 200px;
+  max-height: 200px;
+  margin-top: 10px;
+  border-radius: 4px;
+}
+
+/* Amélioration de l'input file */
+input[type="file"] {
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background-color: white;
+  width: 100%;
+}
+
+/* Style pour les boutons désactivés */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  background: #3182ce;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .course-sidebar {
+    width: 250px;
+  }
+
+  .course-editor-form {
+    padding: 1rem;
+  }
+
+  .code-editor-content {
+    flex-direction: column;
+  }
+
+  .code-textarea,
+  .code-preview {
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .course-editor-container {
     flex-direction: column;
   }
-  
+
   .course-sidebar {
     width: 100%;
     border-right: none;
     border-bottom: 1px solid #e2e8f0;
   }
-  
+
   .course-editor-form {
-    padding: 20px;
+    padding: 1rem;
   }
+
+  .symbols-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .form-section {
+    padding: 1rem;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 0.85rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .submit-btn,
+  .cancel-btn {
+    width: 100%;
+  }
+
+  .symbols-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .editor-toolbar-extra {
+    flex-wrap: wrap;
+  }
+}
+
+/* Amélioration de la coloration syntaxique */
+pre.ql-syntax.hljs {
+  background-color: #2d2d2d !important;
+  color: #f8f8f2 !important;
+  padding: 16px !important;
+  border-radius: 6px !important;
+  font-family: 'Fira Code', 'Fira Mono', 'Consolas', 'Monaco', 'Andale Mono', monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  overflow-x: auto !important;
+  border: 1px solid #444 !important;
+  margin: 16px 0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Style pour l'indicateur de langage */
+pre.ql-syntax.hljs::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  color: #999;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Styles spécifiques pour chaque langage */
+pre.ql-syntax.hljs.javascript { border-left: 4px solid #f7df1e; }
+pre.ql-syntax.hljs.python { border-left: 4px solid #3776ab; }
+pre.ql-syntax.hljs.css { border-left: 4px solid #1572b6; }
+pre.ql-syntax.hljs.xml { border-left: 4px solid #e34f26; }
+pre.ql-syntax.hljs.java { border-left: 4px solid #007396; }
+pre.ql-syntax.hljs.typescript { border-left: 4px solid #3178c6; }
+pre.ql-syntax.hljs.php { border-left: 4px solid #777bb4; }
+pre.ql-syntax.hljs.ruby { border-left: 4px solid #cc342d; }
+pre.ql-syntax.hljs.jsx { border-left: 4px solid #61dafb; }
+
+/* Amélioration de l'éditeur de code */
+.code-textarea {
+  width: 50%;
+  min-height: 300px;
+  font-family: 'Fira Code', 'Fira Mono', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+  border: 1px solid #444;
+  padding: 16px;
+  border-radius: 6px;
+  resize: vertical;
+  tab-size: 2;
+  -moz-tab-size: 2;
+}
+
+.code-preview {
+  width: 50%;
+  background-color: #2d2d2d;
+  border-radius: 6px;
+  border: 1px solid #444;
+  overflow: hidden;
+}
+
+/* Styles pour la prévisualisation du code */
+.code-preview pre {
+  margin: 0 !important;
+  padding: 16px !important;
+  background: transparent !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+/* Amélioration de la sélection de langage */
+.language-selector {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.language-selector:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+}
+
+/* Boutons améliorés */
+.copy-btn, .insert-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-btn {
+  background: #718096;
+  color: white;
+}
+
+.copy-btn:hover {
+  background: #4a5568;
+}
+
+.insert-btn {
+  background: #3182ce;
+  color: white;
+}
+
+.insert-btn:hover {
+  background: #2c5282;
+}
+
+/* Animation pour l'insertion de code */
+@keyframes highlightInsert {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(49, 130, 206, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.highlight-animation {
+  animation: highlightInsert 1s ease-in-out;
+}/* Icône personnalisée pour le bouton de symbole */
+.ql-symbol:before {
+  content: "Ω";
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Style pour la grille de symboles */
+.symbols-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 15px 0;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.symbol-btn {
+  padding: 8px;
+  font-size: 16px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.symbol-btn:hover {
+  background: #e0e0e0;
+  transform: scale(1.05);
+}
+
+/* Ajustements pour les modals */
+.modal-content {
+  max-width: 600px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}/* ==================== */
+/* AUGMENTATION DE LA TAILLE DE L'ÉDITEUR */
+/* ==================== */
+
+/* Conteneur principal de l'éditeur */
+.editor-container {
+  position: relative;
+  min-height: 500px; /* Augmentation de la hauteur minimale */
+  margin-bottom: 20px;
+}
+
+/* Éditeur Quill lui-même */
+.ql-editor {
+  min-height: 450px; /* Hauteur minimale augmentée */
+  font-size: 16px; /* Taille de police légèrement augmentée */
+  line-height: 1.6; /* Meilleur espacement des lignes */
+  padding: 20px; /* Plus d'espace intérieur */
+}
+
+/* Container de l'éditeur Quill */
+.ql-container {
+  font-family: inherit;
+  font-size: 16px;
+  min-height: 450px; /* Hauteur minimale augmentée */
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+/* Barre d'outils de l'éditeur */
+.ql-toolbar {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  padding: 12px; /* Plus d'espace pour la barre d'outils */
+  background-color: #f8f9fa; /* Fond légèrement grisé */
+  border: 1px solid #ccc;
+}
+
+/* Container de l'éditeur */
+.ql-container {
+  border: 1px solid #ccc;
+  border-top: none;
+}
+
+/* Ajustements pour les différents états de l'éditeur */
+.ql-editor.ql-blank::before {
+  font-style: normal;
+  color: #999;
+  font-size: 16px;
+}
+
+/* Ajustement responsive pour l'éditeur agrandi */
+@media (max-width: 768px) {
+  .editor-container {
+    min-height: 400px;
+  }
+  
+  .ql-editor {
+    min-height: 350px;
+    padding: 15px;
+  }
+  
+  .ql-container {
+    min-height: 350px;
+  }
+}
+
+@media (max-width: 480px) {
+  .editor-container {
+    min-height: 350px;
+  }
+  
+  .ql-editor {
+    min-height: 300px;
+    padding: 12px;
+    font-size: 15px;
+  }
+  
+  .ql-container {
+    min-height: 300px;
+  }
+  
+  .ql-toolbar {
+    padding: 8px;
+  }
+  
+  .ql-toolbar .ql-formats {
+    margin-right: 8px;
+  }
+}
+
+/* Amélioration de l'apparence de l'éditeur agrandi */
+.ql-editor h1, .ql-editor h2, .ql-editor h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.ql-editor p {
+  margin-bottom: 1em;
+}
+
+.ql-editor ul, .ql-editor ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.ql-editor blockquote {
+  border-left: 4px solid #ccc;
+  margin: 1.5em 0;
+  padding-left: 1em;
+  font-style: italic;
+}
+
+/* Style amélioré pour les blocs de code */
+.ql-editor pre.ql-syntax {
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+  padding: 1.5em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  border-left: 4px solid #3182ce;
+}
+
+/* Style pour les tableaux dans l'éditeur */
+.ql-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+}
+
+.ql-editor td, .ql-editor th {
+  border: 1px solid #ddd;
+  padding: 10px;
+  min-width: 100px;
+}
+
+.ql-editor th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+/* Ajustement pour l'éditeur en mode plein écran (si applicable) */
+.ql-editor .ql-syntax {
+  font-size: 14px;
+  font-family: 'Fira Code', 'Fira Mono', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+}
+
+/* Amélioration de la visibilité des éléments de l'éditeur */
+.ql-toolbar button:hover {
+  background-color: #e9ecef;
+}
+
+.ql-toolbar button.ql-active {
+  background-color: #dee2e6;
+}
+
+/* Ajustement pour les sélecteurs de couleur */
+.ql-toolbar .ql-picker-label:hover {
+  color: #3182ce;
+}
+
+.ql-toolbar .ql-picker-item.ql-selected {
+  color: #3182ce;
+}
+
+/* Style pour les images dans l'éditeur */
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+/* Style pour les liens dans l'éditeur */
+.ql-editor a {
+  color: #3182ce;
+  text-decoration: underline;
+}
+
+.ql-editor a:hover {
+  color: #2c5282;
+}
+
+/* Ajustement pour le placeholder */
+.ql-editor .ql-blank::before {
+  color: rgba(0, 0, 0, 0.4);
+  font-style: italic;
+  font-size: 16px;
 }

@@ -23,6 +23,8 @@ import {
   checkSubscription,
 
   getCoursesByCreator,
+  getCourseForEditing,
+  getDistinctCategories,
  
   
   
@@ -77,5 +79,9 @@ router.post('/:id/chapters/:chapterId/sections', isFormateur, createSection);
 router.put('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, updateSection);
 router.delete('/:id/chapters/:chapterId/sections/:sectionId', isFormateur, deleteSection);
 router.get('/created-by/:userId', isFormateur, getCoursesByCreator);
+router.get('/:id/edit', isFormateur, getCourseForEditing );
 
+
+// Route pour récupérer les catégories distinctes
+router.get('/categories', getDistinctCategories);
 export default router;

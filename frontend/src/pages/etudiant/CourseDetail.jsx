@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { FiChevronDown, FiChevronRight, FiArrowLeft, FiPlay, FiMessageSquare, FiArrowRight, FiArrowLeft as FiArrowLeftNav } from 'react-icons/fi';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import api from '../../api/axios';
+import QuestionForm from '../../components/Notification/QuestionForm';
 import './CourseDetail.css';
-import { FiChevronDown, FiChevronRight, FiArrowLeft } from 'react-icons/fi';
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -28,11 +31,12 @@ const CourseDetail = () => {
   const [expandedChapters, setExpandedChapters] = useState([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [user, setUser] = useState(null);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [studentMessages, setStudentMessages] = useState([]);
+  const [showMessagesPanel, setShowMessagesPanel] = useState(false);
 
-  const handleBackToDashboard = () => {
-    navigate('/etudiant');
-  };
-
+  // Initialize user from localStorage
   useEffect(() => {
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
@@ -42,6 +46,14 @@ const CourseDetail = () => {
     }
   }, []);
 
+  // Fetch unread messages count for formateur
+  useEffect(() => {
+    if (user && user.role === 'formateur') {
+      fetchUnreadMessagesCount();
+    }
+  }, [user]);
+
+  // Fetch course data and subscription status
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -56,13 +68,19 @@ const CourseDetail = () => {
         ]);
 
         const courseData = courseRes.data.data;
-        if (!courseData.chapters) courseData.chapters = [];
+        courseData.chapters = courseData.chapters || [];
         
         setCourse(courseData);
         setIsSubscribed(subscriptionRes.data.isSubscribed);
 
-        if (subscriptionRes.data.isSubscribed && courseData.chapters.length > 0 && courseData.chapters[0].sections.length > 0) {
-          setCurrentContent({ type: 'section', chapterIndex: 0, sectionIndex: 0, quiz: null });
+        // Initialize currentContent to first valid section or quiz
+        if (subscriptionRes.data.isSubscribed && courseData.chapters.length > 0) {
+          const firstChapter = courseData.chapters[0];
+          if (firstChapter.sections.length > 0) {
+            setCurrentContent({ type: 'section', chapterIndex: 0, sectionIndex: 0, quiz: null });
+          } else if (firstChapter.quiz) {
+            setCurrentContent({ type: 'quiz', chapterIndex: 0, sectionIndex: null, quiz: firstChapter.quiz });
+          }
         }
       } catch (err) {
         console.error('Fetch error:', err);
@@ -74,6 +92,38 @@ const CourseDetail = () => {
     fetchData();
   }, [id, user]);
 
+  // Fetch student messages for etudiant
+  useEffect(() => {
+    if (user && user.role === 'etudiant' && isSubscribed) {
+      fetchStudentMessages();
+    }
+  }, [user, isSubscribed]);
+
+  const fetchUnreadMessagesCount = async () => {
+    try {
+      const response = await api.get('/messages/unread-count', {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      setUnreadMessagesCount(response.data.count);
+    } catch (err) {
+      console.error('Error fetching unread messages count:', err);
+    }
+  };
+
+  const fetchStudentMessages = async () => {
+    try {
+      const response = await api.get('/messages/student', {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      const filtered = (response.data.data || []).filter(
+        (msg) => msg.course && msg.course._id === id
+      );
+      setStudentMessages(filtered);
+    } catch (err) {
+      console.error('Error fetching student messages:', err);
+    }
+  };
+
   const toggleChapter = (chapterIndex) => {
     setExpandedChapters((prev) =>
       prev.includes(chapterIndex)
@@ -83,8 +133,16 @@ const CourseDetail = () => {
   };
 
   const handleSectionClick = async (chapterIndex, sectionIndex) => {
-    if (!isSubscribed) return;
-    
+    if (!isSubscribed) {
+      toast.warn('Vous devez vous abonner pour accéder au contenu.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    if (!isValidContent(chapterIndex, sectionIndex, 'section')) return;
+
     setCurrentContent({ type: 'section', chapterIndex, sectionIndex, quiz: null });
     setQuizResult(null);
     setQuizAnswers({});
@@ -95,21 +153,34 @@ const CourseDetail = () => {
       await api.post(
         `/courses/${id}/sections`,
         { chapterId, sectionId },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { Authorization: `Bearer ${user.token}` } }
       );
-
       const response = await api.get(`/courses/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(response.data.data);
+      
     } catch (err) {
       console.error('Progress update error:', err);
       setError('Erreur lors de la mise à jour de la progression');
+      toast.error('Erreur lors de la mise à jour de la progression.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     }
   };
 
   const handleQuizClick = (chapterIndex, quiz) => {
-    if (!isSubscribed) return;
+    if (!isSubscribed) {
+      toast.warn('Vous devez vous abonner pour accéder au quiz.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    if (!isValidContent(chapterIndex, null, 'quiz')) return;
+
     setCurrentContent({ type: 'quiz', chapterIndex, sectionIndex: null, quiz });
     setQuizResult(null);
     setQuizAnswers({});
@@ -120,36 +191,49 @@ const CourseDetail = () => {
     setQuizAnswers((prev) => {
       if (isMultiple) {
         const currentAnswers = prev[questionId] || [];
-        if (currentAnswers.includes(optionIndex)) {
-          return {
-            ...prev,
-            [questionId]: currentAnswers.filter((i) => i !== optionIndex),
-          };
-        }
-        return { ...prev, [questionId]: [...currentAnswers, optionIndex] };
-      } else {
-        return { ...prev, [questionId]: [optionIndex] };
+        return {
+          ...prev,
+          [questionId]: currentAnswers.includes(optionIndex)
+            ? currentAnswers.filter((i) => i !== optionIndex)
+            : [...currentAnswers, optionIndex],
+        };
       }
+      return { ...prev, [questionId]: [optionIndex] };
     });
   };
 
   const handleQuizSubmit = async () => {
-    if (!isSubscribed) return;
+    if (!isSubscribed) {
+      toast.warn('Vous devez vous abonner pour soumettre le quiz.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
     try {
       const chapterId = course.chapters[currentContent.chapterIndex]._id;
       const response = await api.post(
         `/courses/${id}/quizzes`,
         { chapterId, answers: quizAnswers },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
+        { headers: { Authorization: `Bearer ${user.token}` }}
       );
       setQuizResult({ score: response.data.data.score, submitted: true });
       const courseResponse = await api.get(`/courses/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(courseResponse.data.data);
+      toast.success(`Quiz soumis ! Score: ${response.data.data.score}%`, {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     } catch (err) {
       console.error('Quiz submission error:', err);
       setError('Erreur lors de la soumission du quiz');
+      toast.error('Erreur lors de la soumission du quiz.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     }
   };
 
@@ -165,16 +249,304 @@ const CourseDetail = () => {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(response.data.data);
+      // Initialize content after subscription
+      if (response.data.data.chapters.length > 0) {
+        const firstChapter = response.data.data.chapters[0];
+        if (firstChapter.sections.length > 0) {
+          setCurrentContent({ type: 'section', chapterIndex: 0, sectionIndex: 0, quiz: null });
+        } else if (firstChapter.quiz) {
+          setCurrentContent({ type: 'quiz', chapterIndex: 0, sectionIndex: null, quiz: firstChapter.quiz });
+        }
+      }
+      toast.success('Abonnement réussi ! Vous pouvez maintenant accéder au contenu.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     } catch (err) {
       console.error('Subscription error:', err);
       setError("Erreur lors de l'abonnement au cours");
+      toast.error("Erreur lors de l'abonnement au cours.", {
+        position: 'top-right',
+        autoClose: 3000,
+      });
     }
+  };
+
+  const handleAskQuestion = () => {
+    if (!isSubscribed) {
+      setError('Vous devez être abonné pour poser des questions');
+      toast.error('Vous devez être abonné pour poser des questions.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+    setShowQuestionForm(true);
+  };
+
+  const isValidContent = (chapterIndex, sectionIndex, type) => {
+    if (chapterIndex < 0 || chapterIndex >= course.chapters.length) return false;
+    if (type === 'section' && (sectionIndex < 0 || sectionIndex >= course.chapters[chapterIndex].sections.length)) {
+      return false;
+    }
+    if (type === 'quiz' && !course.chapters[chapterIndex].quiz) return false;
+    return true;
+  };
+
+  const navigateToNextContent = () => {
+    if (!isSubscribed) return;
+
+    const { chapterIndex, sectionIndex, type } = currentContent;
+    const currentChapter = course.chapters[chapterIndex];
+
+    if (type === 'section' && sectionIndex !== null) {
+      if (sectionIndex + 1 < currentChapter.sections.length) {
+        handleSectionClick(chapterIndex, sectionIndex + 1);
+      } else if (currentChapter.quiz) {
+        handleQuizClick(chapterIndex, currentChapter.quiz);
+      } else if (chapterIndex + 1 < course.chapters.length) {
+        const nextChapter = course.chapters[chapterIndex + 1];
+        if (nextChapter.sections.length > 0) {
+          handleSectionClick(chapterIndex + 1, 0);
+        } else if (nextChapter.quiz) {
+          handleQuizClick(chapterIndex + 1, nextChapter.quiz);
+        }
+      }
+    } else if (type === 'quiz' && chapterIndex + 1 < course.chapters.length) {
+      const nextChapter = course.chapters[chapterIndex + 1];
+      if (nextChapter.sections.length > 0) {
+        handleSectionClick(chapterIndex + 1, 0);
+      } else if (nextChapter.quiz) {
+        handleQuizClick(chapterIndex + 1, nextChapter.quiz);
+      }
+    }
+  };
+
+  const navigateToPreviousContent = () => {
+    if (!isSubscribed) return;
+
+    const { chapterIndex, sectionIndex, type } = currentContent;
+    const currentChapter = course.chapters[chapterIndex];
+    
+    if (type === 'section' && sectionIndex > 0) {
+      handleSectionClick(chapterIndex, sectionIndex - 1);
+    } else if (type === 'section' && sectionIndex === 0 && chapterIndex > 0) {
+      const prevChapter = course.chapters[chapterIndex - 1];
+      if (prevChapter.quiz) {
+        handleQuizClick(chapterIndex - 1, prevChapter.quiz);
+      } else if (prevChapter.sections.length > 0) {
+        handleSectionClick(chapterIndex - 1, prevChapter.sections.length - 1);
+      }
+    } else if (type === 'quiz' && currentChapter.sections.length > 0) {
+      handleSectionClick(chapterIndex, currentChapter.sections.length - 1);
+    } else if (type === 'quiz' && chapterIndex > 0) {
+      const prevChapter = course.chapters[chapterIndex - 1];
+      if (prevChapter.quiz) {
+        handleQuizClick(chapterIndex - 1, prevChapter.quiz);
+      } else if (prevChapter.sections.length > 0) {
+        handleSectionClick(chapterIndex - 1, prevChapter.sections.length - 1);
+      }
+    }
+  };
+
+  const getYouTubeId = (url) => {
+    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[7].length === 11) ? match[7] : null;
+  };
+
+  const getVideoType = (url) => {
+    if (!url) return 'none';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+    if (url.includes('vimeo.com')) return 'vimeo';
+    if (url.match(/\.(mp4|webm|ogg)$/i)) return 'direct';
+    return 'unknown';
+  };
+
+  const VideoPlayer = ({ url, title }) => {
+    if (!url) return null;
+    
+    const videoType = getVideoType(url);
+    
+    switch (videoType) {
+      case 'youtube':
+        const videoId = getYouTubeId(url);
+        return (
+          <div className="video-container">
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}`}
+              title={title}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        );
+      case 'vimeo':
+        const vimeoId = url.split('/').pop();
+        return (
+          <div className="video-container">
+            <iframe
+              src={`https://player.vimeo.com/video/${vimeoId}`}
+              title={title}
+              frameBorder="0"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        );
+      case 'direct':
+        return (
+          <div className="video-container">
+            <video controls>
+              <source src={url} type="video/mp4" />
+              Votre navigateur ne supporte pas la lecture de vidéos.
+            </video>
+          </div>
+        );
+      default:
+        return (
+          <div className="video-error">
+            <p>Format de vidéo non supporté. Lien direct: <a href={url} target="_blank" rel="noopener noreferrer">{url}</a></p>
+          </div>
+        );
+    }
+  };
+
+  const StudentMessagesPanel = ({ messages, onClose }) => {
+    const [expandedMessages, setExpandedMessages] = useState([]);
+    const [filter, setFilter] = useState('all');
+
+    const formatDate = (dateString) => {
+      return new Date(dateString).toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const toggleMessage = (messageId) => {
+      setExpandedMessages(prev =>
+        prev.includes(messageId)
+          ? prev.filter(id => id !== messageId)
+          : [...prev, messageId]
+      );
+    };
+
+    const filteredMessages = messages.filter(message => {
+      if (filter === 'answered') return message.response;
+      if (filter === 'pending') return !message.response;
+      return true;
+    });
+
+    const answeredCount = messages.filter(m => m.response).length;
+    const pendingCount = messages.filter(m => !m.response).length;
+
+    return (
+      <div className="student-messages-overlay">
+        <div className="student-messages-container">
+          <div className="student-messages-header">
+            <h3>Vos questions et réponses</h3>
+            <button onClick={onClose} className="close-btn">
+              &times;
+            </button>
+          </div>
+          <div className="messages-filters">
+            <div className="filter-buttons">
+              <button 
+                className={filter === 'all' ? 'active' : ''}
+                onClick={() => setFilter('all')}
+              >
+                Toutes ({messages.length})
+              </button>
+              <button 
+                className={filter === 'answered' ? 'active' : ''}
+                onClick={() => setFilter('answered')}
+              >
+                Répondues ({answeredCount})
+              </button>
+              <button 
+                className={filter === 'pending' ? 'active' : ''}
+                onClick={() => setFilter('pending')}
+              >
+                En attente ({pendingCount})
+              </button>
+            </div>
+          </div>
+          <div className="student-messages-list">
+            {filteredMessages.length === 0 ? (
+              <div className="no-messages">
+                <p>
+                  {filter === 'answered' 
+                    ? "Aucune question répondue pour le moment." 
+                    : filter === 'pending'
+                    ? "Aucune question en attente de réponse."
+                    : "Vous n'avez pas encore posé de questions sur ce cours."
+                  }
+                </p>
+              </div>
+            ) : (
+              filteredMessages.map((message) => (
+                <div key={message._id} className={`message-item ${message.response ? 'answered' : 'pending'}`}>
+                  <div 
+                    className="message-summary"
+                    onClick={() => toggleMessage(message._id)}
+                  >
+                    <div className="message-info">
+                      <h4 className="message-course">{message.course?.title}</h4>
+                      {message.chapter && (
+                        <p className="message-chapter">Chapitre: {message.chapter.title}</p>
+                      )}
+                      <p className="question-preview">
+                        {message.question.length > 100 
+                          ? `${message.question.substring(0, 100)}...` 
+                          : message.question
+                        }
+                      </p>
+                      <p className="message-date">Posée le: {formatDate(message.createdAt)}</p>
+                      <span className="message-status">
+                        {message.response ? '✓ Répondu' : '⏳ En attente'}
+                      </span>
+                    </div>
+                    <span className="expand-icon">
+                      {expandedMessages.includes(message._id) ? '−' : '+'}
+                    </span>
+                  </div>
+                  {expandedMessages.includes(message._id) && (
+                    <div className="message-details">
+                      <div className="message-question-full">
+                        <h5>Votre question:</h5>
+                        <p className="question-text">{message.question}</p>
+                      </div>
+                      {message.response ? (
+                        <div className="message-response">
+                          <h5>Réponse du formateur:</h5>
+                          <p className="response-text">{message.response}</p>
+                          <p className="response-date">Répondu le: {formatDate(message.respondedAt)}</p>
+                        </div>
+                      ) : (
+                        <div className="message-pending">
+                          <p className="pending-text">En attente de réponse du formateur...</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const safeChapters = course.chapters || [];
   const currentSection =
     currentContent.type === 'section' &&
-    safeChapters[currentContent.chapterIndex]?.sections[currentContent.sectionIndex];
+    isValidContent(currentContent.chapterIndex, currentContent.sectionIndex, 'section') ?
+    safeChapters[currentContent.chapterIndex].sections[currentContent.sectionIndex] : null;
   const currentQuiz = currentContent.type === 'quiz' && currentContent.quiz;
 
   if (loading) {
@@ -194,13 +566,13 @@ const CourseDetail = () => {
 
   return (
     <div className="detail-course-container">
+      <ToastContainer />
       <aside className="course-sidebar">
-        <button onClick={handleBackToDashboard} className="back-button">
+        <button onClick={() => navigate(user?.role === 'formateur' ? '/formateur' : '/etudiant')} className="back-button">
           <FiArrowLeft className="back-icon" />
           Retour au tableau de bord
         </button>
-
-        <h2 className="course-title">{course.title}</h2>
+        <h2 className="course-title">{course.title || 'Cours sans titre'}</h2>
         {isSubscribed ? (
           <div className="progress-info">
             Progression: {course.progress?.overallProgress || 0}%
@@ -208,12 +580,11 @@ const CourseDetail = () => {
         ) : (
           <div className="subscribe-message">
             <p>Vous devez vous abonner pour accéder au contenu</p>
-            {user && (
+            {user ? (
               <button onClick={handleSubscribe} className="subscribe-button">
                 S'abonner
               </button>
-            )}
-            {!user && (
+            ) : (
               <button 
                 onClick={() => navigate('/login')} 
                 className="subscribe-button"
@@ -223,7 +594,6 @@ const CourseDetail = () => {
             )}
           </div>
         )}
-        
         {isSubscribed && (
           <nav className="chapters-list">
             {safeChapters.length === 0 ? (
@@ -238,11 +608,7 @@ const CourseDetail = () => {
                 >
                   <button className="chapter-header" onClick={() => toggleChapter(chapterIndex)}>
                     <span className="chapter-icon">
-                      {expandedChapters.includes(chapterIndex) ? (
-                        <FiChevronDown />
-                      ) : (
-                        <FiChevronRight />
-                      )}
+                      {expandedChapters.includes(chapterIndex) ? <FiChevronDown /> : <FiChevronRight />}
                     </span>
                     <span className="chapter-title">
                       Chapitre {chapterIndex + 1}: {chapter.title}
@@ -272,10 +638,13 @@ const CourseDetail = () => {
                                 currentContent.sectionIndex === sectionIndex
                                   ? 'active'
                                   : ''
-                              }`}
+                              } ${section.videoUrl ? 'has-video' : ''}`}
                               onClick={() => handleSectionClick(chapterIndex, sectionIndex)}
                             >
-                              {section.title}
+                              <div className="section-content">
+                                {section.videoUrl && <FiPlay className="video-icon" />}
+                                <span className="section-title">{section.title}</span>
+                              </div>
                               {course.progress?.chapterProgress
                                 ?.find((cp) => cp.chapterId.toString() === chapter._id)
                                 ?.completedSections.includes(section._id) && (
@@ -336,20 +705,54 @@ const CourseDetail = () => {
         ) : currentContent.type === 'section' && currentSection ? (
           <div className="section-content">
             <h3 className="section-title">{currentSection.title}</h3>
-            {currentSection.videoUrl?.startsWith('http') && (
-              <div className="video-container">
-                <iframe
-                  src={currentSection.videoUrl}
-                  title={currentSection.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+            {currentSection.videoUrl && (
+              <VideoPlayer url={currentSection.videoUrl} title={currentSection.title} />
             )}
             <div 
               className="text-content" 
               dangerouslySetInnerHTML={{ __html: currentSection.content || 'Aucun contenu disponible' }}
             />
+            <div className="content-navigation">
+              <button
+                className="nav-button prev"
+                onClick={navigateToPreviousContent}
+                disabled={
+                  currentContent.chapterIndex === 0 && 
+                  currentContent.sectionIndex === 0
+                }
+              >
+                <FiArrowLeftNav /> Précédent
+              </button>
+              <button
+                className="nav-button next"
+                onClick={navigateToNextContent}
+                disabled={
+                  currentContent.chapterIndex === safeChapters.length - 1 &&
+                  currentContent.sectionIndex === safeChapters[currentContent.chapterIndex].sections.length - 1 &&
+                  !safeChapters[currentContent.chapterIndex].quiz
+                }
+              >
+                Suivant <FiArrowRight />
+              </button>
+            </div>
+            {isSubscribed && (
+              <div className="floating-question-buttons">
+                <button 
+                  className="ask-question-btn"
+                  onClick={handleAskQuestion}
+                >
+                  <FiMessageSquare /> Poser une question
+                </button>
+                {studentMessages.length > 0 && (
+                  <button 
+                    className="view-messages-btn"
+                    onClick={() => setShowMessagesPanel(true)}
+                  >
+                    <FiMessageSquare /> Voir mes questions ({studentMessages.length})
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : currentContent.type === 'quiz' && currentQuiz ? (
           <div className="quiz-content">
@@ -377,6 +780,22 @@ const CourseDetail = () => {
                 >
                   Refaire le quiz
                 </button>
+                <div className="content-navigation">
+                  <button
+                    className="nav-button prev"
+                    onClick={navigateToPreviousContent}
+                    disabled={currentContent.chapterIndex === 0 && safeChapters[currentContent.chapterIndex].sections.length === 0}
+                  >
+                    <FiArrowLeftNav /> Précédent
+                  </button>
+                  <button
+                    className="nav-button next"
+                    onClick={navigateToNextContent}
+                    disabled={currentContent.chapterIndex === safeChapters.length - 1}
+                  >
+                    Suivant <FiArrowRight />
+                  </button>
+                </div>
               </div>
             ) : quizResult?.submitted ? (
               <div className="quiz-result">
@@ -391,6 +810,22 @@ const CourseDetail = () => {
                 >
                   Réessayer
                 </button>
+                <div className="content-navigation">
+                  <button
+                    className="nav-button prev"
+                    onClick={navigateToPreviousContent}
+                    disabled={currentContent.chapterIndex === 0 && safeChapters[currentContent.chapterIndex].sections.length === 0}
+                  >
+                    <FiArrowLeftNav /> Précédent
+                  </button>
+                  <button
+                    className="nav-button next"
+                    onClick={navigateToNextContent}
+                    disabled={currentContent.chapterIndex === safeChapters.length - 1}
+                  >
+                    Suivant <FiArrowRight />
+                  </button>
+                </div>
               </div>
             ) : (
               <form
@@ -400,25 +835,43 @@ const CourseDetail = () => {
                   handleQuizSubmit();
                 }}
               >
-               {currentQuiz.questions.map((question, qIndex) => (
-  <div key={question._id || `question-${qIndex}`} className="quiz-question">
-    <h4>{qIndex + 1}. {question.text || 'Question sans texte'}</h4>
-    {question.options.map((option, oIndex) => (
-      <label key={oIndex} className="quiz-option">
-        <input
-          type={question.multipleAnswers ? "checkbox" : "radio"}
-          name={question._id}
-          checked={(quizAnswers[question._id] || []).includes(oIndex)}
-          onChange={() => handleAnswerChange(question._id, oIndex, question.multipleAnswers)}
-        />
-        {option.text || option} {/* Modification ici pour gérer les options qui pourraient être des objets */}
-      </label>
-    ))}
-  </div>
-))}
+                {currentQuiz.questions.map((question, qIndex) => (
+                  <div key={question._id || `question-${qIndex}`} className="quiz-question">
+                    <h4>{qIndex + 1}. {question.text || 'Question sans texte'}</h4>
+                    {question.options.map((option, oIndex) => (
+                      <label key={oIndex} className="quiz-option">
+                        <input
+                          type={question.multipleAnswers ? "checkbox" : "radio"}
+                          name={question._id}
+                          checked={(quizAnswers[question._id] || []).includes(oIndex)}
+                          onChange={() => handleAnswerChange(question._id, oIndex, question.multipleAnswers)}
+                        />
+                        {typeof option === 'string' ? option : option.text || `Option ${oIndex + 1}`}
+                      </label>
+                    ))}
+                  </div>
+                ))}
                 <button type="submit" className="quiz-submit-button">
                   Soumettre
                 </button>
+                <div className="content-navigation">
+                  <button
+                    type="button"
+                    className="nav-button prev"
+                    onClick={navigateToPreviousContent}
+                    disabled={currentContent.chapterIndex === 0 && safeChapters[currentContent.chapterIndex].sections.length === 0}
+                  >
+                    <FiArrowLeftNav /> Précédent
+                  </button>
+                  <button
+                    type="button"
+                    className="nav-button next"
+                    onClick={navigateToNextContent}
+                    disabled={currentContent.chapterIndex === safeChapters.length - 1}
+                  >
+                    Suivant <FiArrowRight />
+                  </button>
+                </div>
               </form>
             )}
           </div>
@@ -426,6 +879,29 @@ const CourseDetail = () => {
           <div className="no-content">Aucun contenu sélectionné</div>
         )}
       </main>
+      {showQuestionForm && (
+        <QuestionForm 
+          courseId={id}
+          chapterId={safeChapters[currentContent.chapterIndex]?._id}
+          sectionId={currentSection?._id}
+          onClose={() => setShowQuestionForm(false)}
+          user={user}
+          onQuestionSent={() => {
+            setShowQuestionForm(false);
+            fetchStudentMessages();
+            toast.success('Question envoyée avec succès !', {
+              position: 'top-right',
+              autoClose: 3000,
+            });
+          }}
+        />
+      )}
+      {showMessagesPanel && (
+        <StudentMessagesPanel 
+          messages={studentMessages}
+          onClose={() => setShowMessagesPanel(false)}
+        />
+      )}
     </div>
   );
 };
