@@ -6,7 +6,7 @@ const questionSchema = new Schema({
   options: [{
     text: { type: String, required: true },
     isCorrect: { type: Boolean, default: false }
-  }]
+  }],explanation: { type: String, default: 'Aucune explication fournie.' }
 }, { timestamps: true });
 
 export default model('Question', questionSchema);

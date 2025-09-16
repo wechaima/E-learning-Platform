@@ -66,7 +66,7 @@ router.get('/:userId/followed-courses', isEtudiant,getFollowedCourses);
 // Routes formateur
 
 router.post('/',isFormateur, createCourse);
-router.put('/:id',isFormateur, updateCourse);
+router.patch('/:id',isFormateur, updateCourse);
 router.delete('/:id', isFormateur,deleteCourse);
 // Chapter routes
 router.post('/:id/chapters', isFormateur, createChapter);

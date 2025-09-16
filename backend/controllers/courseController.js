@@ -454,7 +454,7 @@ export const updateCourse = async (req, res) => {
             order: chapterData.order || chapters.length
           });
           await chapter.save();
-          lastAddedChapter = chapter; // Garder trace du dernier ajout
+          lastAddedChapter = chapter;
         }
 
         // Gestion des sections
@@ -474,27 +474,43 @@ export const updateCourse = async (req, res) => {
           await chapter.save();
         }
 
-        // Gestion du quiz
+        // Gestion du quiz - PARTIE CORRIGÉE
         if (chapterData.quiz && chapterData.quiz.questions) {
-          await Quiz.deleteMany({ chapterId: chapter._id });
-          await Question.deleteMany({ quizId: { $in: await Quiz.find({ chapterId: chapter._id }).select('_id') }});
-
-          const quiz = new Quiz({
-            passingScore: chapterData.quiz.passingScore || 70,
-            chapterId: chapter._id
-          });
-          const savedQuiz = await quiz.save();
+          let quiz = await Quiz.findOne({ chapterId: chapter._id });
+          
+          if (quiz) {
+            // Supprimer les anciennes questions
+            await Question.deleteMany({ quizId: quiz._id });
+          } else {
+            // Créer un nouveau quiz
+            quiz = new Quiz({
+              passingScore: chapterData.quiz.passingScore || 70,
+              chapterId: chapter._id
+            });
+            await quiz.save();
+          }
 
           const questions = await Question.insertMany(
             chapterData.quiz.questions.map(question => {
-              // Vérifier la structure des réponses correctes
+              // Gestion des réponses correctes
               let correctOptions = [];
+              
+              // Cas 1: correctOption est un tableau d'indices
               if (Array.isArray(question.correctOption)) {
                 correctOptions = question.correctOption;
-              } else if (typeof question.correctOption === 'number') {
+              } 
+              // Cas 2: correctOption est un seul indice numérique
+              else if (typeof question.correctOption === 'number') {
                 correctOptions = [question.correctOption];
-              } else if (question.options && question.options.some(opt => opt.isCorrect)) {
-                // Si les réponses correctes sont stockées dans les options
+              }
+              // Cas 3: Les options contiennent directement la propriété isCorrect
+              else if (question.options && question.options.some(opt => opt.isCorrect)) {
+                correctOptions = question.options
+                  .map((opt, index) => (opt.isCorrect ? index : -1))
+                  .filter(index => index !== -1);
+              }
+              // Cas 4: Structure par défaut (options avec texte et isCorrect)
+              else if (question.options && question.options[0] && typeof question.options[0] === 'object') {
                 correctOptions = question.options
                   .map((opt, index) => (opt.isCorrect ? index : -1))
                   .filter(index => index !== -1);
@@ -504,19 +520,19 @@ export const updateCourse = async (req, res) => {
                 text: question.text,
                 options: question.options.map((opt, i) => ({
                   text: typeof opt === 'string' ? opt : opt.text || '',
-                  // Déterminer si cette option est correcte
                   isCorrect: correctOptions.includes(i)
                 })),
-                explanation: question.explanation,
-                quizId: savedQuiz._id
+                explanation: question.explanation || 'Aucune explication fournie.',
+                quizId: quiz._id
               };
             })
           );
 
-          savedQuiz.questions = questions.map(q => q._id);
-          await savedQuiz.save();
+          quiz.questions = questions.map(q => q._id);
+          quiz.passingScore = chapterData.quiz.passingScore || quiz.passingScore;
+          await quiz.save();
 
-          chapter.quiz = savedQuiz._id;
+          chapter.quiz = quiz._id;
           await chapter.save();
         }
 
@@ -1020,6 +1036,8 @@ export const deleteSection = async (req, res) => {
 export const getCourseById = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: 'ID de cours invalide' });
     }
@@ -1027,64 +1045,107 @@ export const getCourseById = async (req, res) => {
     const course = await Course.findById(id)
       .populate({
         path: 'createdBy',
-        select: 'prenom nom email role'
+        select: 'prenom nom email role',
       })
       .populate({
         path: 'chapters',
         options: { sort: { order: 1 } },
         populate: [
-          { 
+          {
             path: 'sections',
             options: { sort: { order: 1 } },
-            select: 'title content videoUrl order duration' // Ajout de content et videoUrl
+            select: 'title content videoUrl order duration',
           },
           {
             path: 'quiz',
-            populate: { 
+            populate: {
               path: 'questions',
-              select: 'text options explanation points' // Inclure toutes les données nécessaires
-            }
-          }
-        ]
+              select: 'text options explanation points',
+            },
+          },
+        ],
       });
 
     if (!course) {
       return res.status(404).json({ success: false, message: 'Cours non trouvé' });
     }
 
-    // Transformer la structure pour le frontend
+    let progress = null;
+    if (userId) {
+      progress = await Progress.findOne({ userId, courseId: id });
+    }
+
+    // Calculer la progression globale
+    if (progress) {
+      let totalItems = 0;
+      let completedItems = 0;
+
+      course.chapters.forEach((chapter) => {
+        totalItems += chapter.sections.length;
+        if (chapter.quiz) totalItems += 1;
+      });
+
+      progress.chapterProgress.forEach((chap) => {
+        completedItems += chap.completedSections.length;
+        if (chap.quizCompleted) completedItems += 1;
+      });
+
+      progress.overallProgress = totalItems > 0 ? Math.min(100, Math.round((completedItems / totalItems) * 100)) : 0;
+      await progress.save();
+    }
+
     const transformedCourse = {
       ...course.toObject(),
-      chapters: course.chapters.map(chapter => ({
+      progress: progress
+        ? {
+            overallProgress: progress.overallProgress,
+            chapterProgress: progress.chapterProgress.map((cp) => ({
+              chapterId: cp.chapterId,
+              completedSections: cp.completedSections,
+              quizScore: cp.quizScore,
+              quizCompleted: cp.quizCompleted,
+            })),
+          }
+        : null,
+      chapters: course.chapters.map((chapter) => ({
         ...chapter.toObject(),
-        quiz: chapter.quiz ? {
-          ...chapter.quiz.toObject(),
-          questions: chapter.quiz.questions.map(question => ({
-            ...question.toObject(),
-            options: question.options.map(opt => opt.text),
-            correctOption: question.options.reduce((acc, opt, idx) => {
-              if (opt.isCorrect) acc.push(idx);
-              return acc;
-            }, []),
-            multipleAnswers: question.options.filter(opt => opt.isCorrect).length > 1
-          }))
-        } : {
-          passingScore: 70,
-          questions: []
-        }
-      }))
+        quiz: chapter.quiz
+          ? {
+              ...chapter.quiz.toObject(),
+              questions: chapter.quiz.questions.map((question) => ({
+                _id: question._id,
+                text: question.text,
+                // CORRECTION ICI : Garder les options complètes avec isCorrect
+                options: question.options.map((opt) => ({
+                  text: opt.text,
+                  isCorrect: opt.isCorrect
+                })),
+                explanation: question.explanation,
+                points: question.points,
+                // CORRECTION ICI : Ajouter correctOption pour la compatibilité
+                correctOption: question.options
+                  .map((opt, index) => (opt.isCorrect ? index : -1))
+                  .filter(index => index !== -1),
+                multipleAnswers: question.options.filter((opt) => opt.isCorrect).length > 1,
+              })),
+            }
+          : {
+              passingScore: 70,
+              questions: [],
+            },
+      })),
     };
 
     res.status(200).json({
       success: true,
-      data: transformedCourse
+      data: transformedCourse,
     });
   } catch (error) {
     console.error('Error in getCourseById:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération du cours',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -1143,36 +1204,9 @@ try {
 export const completeQuiz = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { chapterId, answers } = req.body; // answers: { questionId: [selectedOptionIndices] }
+    const { chapterId, answers, retry } = req.body;
     const userId = req.user.id;
 
-    // Fetch quiz to validate answers
-    const course = await Course.findById(courseId).populate({
-      path: 'chapters',
-      match: { _id: chapterId },
-      populate: { path: 'quiz', populate: { path: 'questions' } },
-    });
-    const quiz = course.chapters[0]?.quiz;
-    if (!quiz) {
-      return res.status(404).json({ success: false, message: 'Quiz non trouvé' });
-    }
-
-    // Calculate score
-    let score = 0;
-    const totalQuestions = quiz.questions.length;
-    quiz.questions.forEach((question, qIndex) => {
-      const userAnswers = answers[question._id] || [];
-      const correctIndices = question.options
-        .map((opt, i) => (opt.isCorrect ? i : null))
-        .filter((i) => i !== null);
-      const isCorrect =
-        userAnswers.length === correctIndices.length &&
-        userAnswers.every((ans) => correctIndices.includes(ans));
-      if (isCorrect) score += 1;
-    });
-    const percentageScore = Math.round((score / totalQuestions) * 100);
-
-    // Update progress
     let progress = await Progress.findOne({ userId, courseId });
     if (!progress) {
       progress = new Progress({ userId, courseId, chapterProgress: [] });
@@ -1186,23 +1220,90 @@ export const completeQuiz = async (req, res) => {
       progress.chapterProgress.push(chapterProgress);
     }
 
+    if (chapterProgress.quizCompleted && !retry) {
+      return res.status(400).json({
+        success: false,
+        message: 'Quiz déjà complété. Utilisez l\'option de reprise pour refaire le quiz.',
+      });
+    }
+
+    const course = await Course.findById(courseId).populate({
+      path: 'chapters',
+      match: { _id: chapterId },
+      populate: { path: 'quiz', populate: { path: 'questions' } },
+    });
+    const quiz = course.chapters[0]?.quiz;
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz non trouvé' });
+    }
+
+    let score = 0;
+    const totalQuestions = quiz.questions.length;
+    const questionResults = [];
+
+    quiz.questions.forEach((question, qIndex) => {
+      const userAnswers = answers[question._id] || [];
+      const correctIndices = question.options
+        .map((opt, i) => (opt.isCorrect ? i : null))
+        .filter((i) => i !== null);
+      const isCorrect =
+        userAnswers.length === correctIndices.length &&
+        userAnswers.every((ans) => correctIndices.includes(ans));
+      if (isCorrect) score += 1;
+
+      questionResults.push({
+        questionId: question._id,
+        questionText: question.text,
+        userAnswers: userAnswers.map((idx) => ({
+          index: idx,
+          text: question.options[idx]?.text || `Option ${idx + 1}`,
+        })),
+        correctAnswers: correctIndices.map((idx) => ({
+          index: idx,
+          text: question.options[idx]?.text || `Option ${idx + 1}`,
+        })),
+        isCorrect,
+        explanation: question.explanation || 'Aucune explication fournie.',
+      });
+    });
+    const percentageScore = Math.round((score / totalQuestions) * 100);
+
     chapterProgress.quizCompleted = true;
     chapterProgress.quizScore = percentageScore;
 
+    // Calculer la progression globale
     const courseData = await Course.findById(courseId).populate({
       path: 'chapters',
       populate: { path: 'sections' },
     });
-    const totalSections = courseData.chapters.reduce((sum, chap) => sum + chap.sections.length, 0);
-    const completedSections = progress.chapterProgress.reduce(
-      (sum, chap) => sum + chap.completedSections.length,
-      0
-    );
-    progress.overallProgress = Math.round((completedSections / totalSections) * 100);
+
+    // Compter le nombre total de sections et de quiz
+    let totalItems = 0;
+    let completedItems = 0;
+
+    courseData.chapters.forEach((chapter) => {
+      totalItems += chapter.sections.length; // Ajouter les sections
+      if (chapter.quiz) totalItems += 1; // Ajouter le quiz s'il existe
+    });
+
+    progress.chapterProgress.forEach((chap) => {
+      completedItems += chap.completedSections.length; // Sections complétées
+      if (chap.quizCompleted) completedItems += 1; // Quiz complété
+    });
+
+    // Calculer la progression (max 100 %)
+    progress.overallProgress = totalItems > 0 ? Math.min(100, Math.round((completedItems / totalItems) * 100)) : 0;
 
     await progress.save();
 
-    res.json({ success: true, data: { progress, score: percentageScore } });
+    res.json({
+      success: true,
+      data: {
+        progress,
+        score: percentageScore,
+        questionResults,
+      },
+    });
   } catch (err) {
     console.error('Error in completeQuiz:', err);
     res.status(500).json({ success: false, message: 'Erreur lors de la soumission du quiz' });

@@ -36,6 +36,157 @@ const CourseDetail = () => {
   const [studentMessages, setStudentMessages] = useState([]);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
 
+  // Composant pour l'affichage détaillé des résultats du quiz
+  const QuizDetailedResults = ({ results, overallStats, onRetry }) => {
+    const [expandedQuestions, setExpandedQuestions] = useState([]);
+
+    const toggleQuestion = (questionId) => {
+      setExpandedQuestions(prev =>
+        prev.includes(questionId)
+          ? prev.filter(id => id !== questionId)
+          : [...prev, questionId]
+      );
+    };
+
+    const getScoreColor = (percentage) => {
+      if (percentage >= 80) return '#4caf50';
+      if (percentage >= 60) return '#ff9800';
+      return '#f44336';
+    };
+
+    const getScoreEmoji = (percentage) => {
+      if (percentage >= 80) return '🎉';
+      if (percentage >= 60) return '👍';
+      return '👎';
+    };
+
+    return (
+      <div className="quiz-detailed-results">
+        {/* Résumé global */}
+        <div className="quiz-summary">
+          <h4>Résumé du quiz</h4>
+          <div className="summary-stats">
+            <div className="stat-item">
+              <span className="stat-label">Score final</span>
+              <span className="stat-value" style={{ color: getScoreColor(overallStats.averagePercentage) }}>
+                {overallStats.averagePercentage}%
+              </span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Questions correctes</span>
+              <span className="stat-value">
+                {overallStats.correctQuestions}/{overallStats.totalQuestions}
+              </span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Performance</span>
+              <span className="stat-emoji">
+                {getScoreEmoji(overallStats.averagePercentage)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Détails par question */}
+        <div className="questions-breakdown">
+          <h5>Détail des questions</h5>
+          {results.map((result, index) => (
+            <div key={result.questionId} className="question-breakdown">
+              <div 
+                className="question-header"
+                onClick={() => toggleQuestion(result.questionId)}
+              >
+                <div className="question-info">
+                  <span className="question-number">Question {index + 1}</span>
+                  <span className={`question-status ${result.isCorrect ? 'correct' : 'incorrect'}`}>
+                    {result.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                  </span>
+                  <span 
+                    className="score-percentage"
+                    style={{ color: getScoreColor(result.statistics.percentage) }}
+                  >
+                    {result.statistics.percentage}% de réussite
+                  </span>
+                </div>
+                <span className="expand-icon">
+                  {expandedQuestions.includes(result.questionId) ? '−' : '+'}
+                </span>
+              </div>
+
+              {expandedQuestions.includes(result.questionId) && (
+                <div className="question-details">
+                  <div className="question-text">
+                    <strong>Question:</strong> {result.questionText}
+                  </div>
+
+                  <div className="answers-comparison">
+                    <div className="user-answers">
+                      <strong>Vos réponses:</strong>
+                      {result.userAnswers.length > 0 ? (
+                        <ul>
+                          {result.userAnswers.map((answer, idx) => (
+                            <li 
+                              key={idx}
+                              className={result.correctAnswers.some(ca => ca.index === answer.index) 
+                                ? 'correct-answer' 
+                                : 'incorrect-answer'
+                              }
+                            >
+                              {answer.text}
+                              {result.correctAnswers.some(ca => ca.index === answer.index) 
+                                ? ' ✓' 
+                                : ' ✗'
+                              }
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>Aucune réponse sélectionnée</p>
+                      )}
+                    </div>
+
+                    <div className="correct-answers">
+                      <strong>Réponses correctes:</strong>
+                      <ul>
+                        {result.correctAnswers.map((answer, idx) => (
+                          <li key={idx}>✓ {answer.text}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {result.explanation && result.explanation !== 'Aucune explication fournie.' && (
+                    <div className="explanation">
+                      <strong>Explication:</strong>
+                      <p>{result.explanation}</p>
+                    </div>
+                  )}
+
+                  <div className="question-statistics">
+                    <div className="stat">
+                      <span>Réponses correctes: </span>
+                      <strong>{result.statistics.userCorrectCount}/{result.statistics.correctOptionsCount}</strong>
+                    </div>
+                    <div className="stat">
+                      <span>Pourcentage de réussite: </span>
+                      <strong style={{ color: getScoreColor(result.statistics.percentage) }}>
+                        {result.statistics.percentage}%
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button className="quiz-retry-button" onClick={onRetry}>
+          Réessayer le quiz
+        </button>
+      </div>
+    );
+  };
+
   // Initialize user from localStorage
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -61,7 +212,9 @@ const CourseDetail = () => {
         setError('');
         
         const [courseRes, subscriptionRes] = await Promise.all([
-          api.get(`/courses/${id}`),
+          api.get(`/courses/${id}`, {
+            headers: user ? { Authorization: `Bearer ${user.token}` } : {},
+          }),
           user ? api.get(`/courses/${id}/check-subscription`, {
             headers: { Authorization: `Bearer ${user.token}` }
           }) : Promise.resolve({ data: { isSubscribed: false } })
@@ -98,6 +251,22 @@ const CourseDetail = () => {
       fetchStudentMessages();
     }
   }, [user, isSubscribed]);
+
+  // Reset quiz state when switching to a quiz
+  useEffect(() => {
+    if (currentContent.type === 'quiz' && course.progress) {
+      const chapterProgress = course.progress.chapterProgress?.find(
+        (cp) => cp.chapterId.toString() === course.chapters[currentContent.chapterIndex]?._id
+      );
+      if (chapterProgress?.quizCompleted) {
+        setQuizResult({ score: chapterProgress.quizScore, submitted: true });
+        setQuizAnswers({});
+      } else {
+        setQuizResult(null);
+        setQuizAnswers({});
+      }
+    }
+  }, [currentContent, course.progress, course.chapters]);
 
   const fetchUnreadMessagesCount = async () => {
     try {
@@ -159,7 +328,7 @@ const CourseDetail = () => {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(response.data.data);
-      
+     
     } catch (err) {
       console.error('Progress update error:', err);
       setError('Erreur lors de la mise à jour de la progression');
@@ -182,8 +351,6 @@ const CourseDetail = () => {
     if (!isValidContent(chapterIndex, null, 'quiz')) return;
 
     setCurrentContent({ type: 'quiz', chapterIndex, sectionIndex: null, quiz });
-    setQuizResult(null);
-    setQuizAnswers({});
   };
 
   const handleAnswerChange = (questionId, optionIndex, isMultiple) => {
@@ -211,14 +378,75 @@ const CourseDetail = () => {
       return;
     }
 
+    const chapterProgress = course.progress?.chapterProgress?.find(
+      (cp) => cp.chapterId.toString() === course.chapters[currentContent.chapterIndex]?._id
+    );
+    if (chapterProgress?.quizCompleted && !quizResult) {
+      toast.warn('Vous avez déjà complété ce quiz. Cliquez sur "Refaire le quiz" pour le reprendre.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
     try {
       const chapterId = course.chapters[currentContent.chapterIndex]._id;
       const response = await api.post(
         `/courses/${id}/quizzes`,
-        { chapterId, answers: quizAnswers },
-        { headers: { Authorization: `Bearer ${user.token}` }}
+        { 
+          chapterId, 
+          answers: quizAnswers,
+          retry: !!quizResult,
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
       );
-      setQuizResult({ score: response.data.data.score, submitted: true });
+      
+      // Calculer les statistiques par question
+      const questionResults = response.data.data.questionResults.map(result => {
+        const originalQuestion = currentQuiz.questions.find(q => q._id === result.questionId);
+        const totalOptions = originalQuestion?.options?.length || 0;
+        const correctOptionsCount = originalQuestion?.options?.filter(opt => opt.isCorrect).length || 0;
+        
+        return {
+          ...result,
+          questionText: originalQuestion?.text || result.questionText,
+          correctAnswers: originalQuestion?.options 
+            ? originalQuestion.options
+                .filter(opt => opt.isCorrect)
+                .map((opt, idx) => ({
+                  index: idx,
+                  text: typeof opt === 'string' ? opt : opt.text || `Option ${idx + 1}`
+                }))
+            : result.correctAnswers,
+          explanation: originalQuestion?.explanation || result.explanation,
+          // Statistiques de la question
+          statistics: {
+            totalOptions: totalOptions,
+            correctOptionsCount: correctOptionsCount,
+            userCorrectCount: result.userAnswers.filter(userAns => 
+              result.correctAnswers.some(correctAns => correctAns.index === userAns.index)
+            ).length,
+            percentage: correctOptionsCount > 0 
+              ? Math.round((result.userAnswers.filter(userAns => 
+                  result.correctAnswers.some(correctAns => correctAns.index === userAns.index)
+                ).length / correctOptionsCount) * 100)
+              : 0
+          }
+        };
+      });
+
+      setQuizResult({
+        score: response.data.data.score,
+        submitted: true,
+        questionResults: questionResults,
+        // Statistiques globales
+        overallStats: {
+          totalQuestions: questionResults.length,
+          correctQuestions: questionResults.filter(q => q.isCorrect).length,
+          averagePercentage: Math.round(questionResults.reduce((sum, q) => sum + q.statistics.percentage, 0) / questionResults.length)
+        }
+      });
+      
       const courseResponse = await api.get(`/courses/${id}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
@@ -249,7 +477,6 @@ const CourseDetail = () => {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setCourse(response.data.data);
-      // Initialize content after subscription
       if (response.data.data.chapters.length > 0) {
         const firstChapter = response.data.data.chapters[0];
         if (firstChapter.sections.length > 0) {
@@ -765,21 +992,34 @@ const CourseDetail = () => {
                 <p>Votre score: {course.progress?.chapterProgress?.find(
                   cp => cp.chapterId.toString() === safeChapters[currentContent.chapterIndex]._id
                 )?.quizScore}%</p>
-                <button
-                  className="quiz-retry-button"
-                  onClick={() => {
-                    setCurrentContent({ 
-                      type: 'quiz', 
-                      chapterIndex: currentContent.chapterIndex, 
-                      sectionIndex: null, 
-                      quiz: currentQuiz 
-                    });
-                    setQuizResult(null);
-                    setQuizAnswers({});
-                  }}
-                >
-                  Refaire le quiz
-                </button>
+                
+                {/* AFFICHAGE DES RÉPONSES CORRECTES MÊME QUAND LE QUIZ EST DÉJÀ COMPLÉTÉ */}
+                <div className="quiz-detailed-results">
+                  <h5>Réponses correctes:</h5>
+                  {currentQuiz.questions.map((question, index) => {
+                    const correctOptions = question.options
+                      .filter(opt => opt.isCorrect)
+                      .map((opt, idx) => ({
+                        index: idx,
+                        text: typeof opt === 'string' ? opt : opt.text || `Option ${idx + 1}`
+                      }));
+
+                    return (
+                      <div key={question._id || `question-${index}`} className="question-result">
+                        <h6>{index + 1}. {question.text || 'Question sans texte'}</h6>
+                        <p>
+                          <strong>Réponse correcte :</strong>{' '}
+                          {correctOptions.map(opt => opt.text).join(', ')}
+                        </p>
+                        <p>
+                          <strong>Explication :</strong> {question.explanation || 'Aucune explication fournie.'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                
                 <div className="content-navigation">
                   <button
                     className="nav-button prev"
@@ -799,17 +1039,20 @@ const CourseDetail = () => {
               </div>
             ) : quizResult?.submitted ? (
               <div className="quiz-result">
-                <h4>Résultat: {quizResult.score}%</h4>
-                <p>{quizResult.score >= 70 ? 'Réussi !' : 'Essayez encore.'}</p>
-                <button
-                  className="quiz-retry-button"
-                  onClick={() => {
+                <h4>Résultat du quiz: {quizResult.score}%</h4>
+                <p className="result-message">
+                  {quizResult.score >= 70 ? '🎉 Félicitations ! Vous avez réussi le quiz.' : '📚 Continuez à apprendre, vous y êtes presque !'}
+                </p>
+                
+                <QuizDetailedResults 
+                  results={quizResult.questionResults}
+                  overallStats={quizResult.overallStats}
+                  onRetry={() => {
                     setQuizResult(null);
                     setQuizAnswers({});
                   }}
-                >
-                  Réessayer
-                </button>
+                />
+                
                 <div className="content-navigation">
                   <button
                     className="nav-button prev"
