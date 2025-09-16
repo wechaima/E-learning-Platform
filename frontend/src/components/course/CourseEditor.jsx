@@ -111,6 +111,7 @@ function CourseEditor({ onSubmit, onCancel, initialData }) {
 
   useEffect(() => {
     if (initialData) {
+      console.log('Initial data received:', JSON.stringify(initialData, null, 2));
       const formattedData = {
         title: initialData.title || '',
         description: initialData.description || '',

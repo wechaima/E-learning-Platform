@@ -726,9 +726,7 @@ function EtudiantDashboard() {
                       {course.createdBy?.prenom} {course.createdBy?.nom}
                     </span>
                   </div>
-                  <div className="course-category">
-                    <span>Catégorie: {course.category}</span>
-                  </div>
+                 
                 </div>
               </div>
             ))

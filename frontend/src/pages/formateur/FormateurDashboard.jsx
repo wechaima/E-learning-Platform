@@ -288,64 +288,72 @@ function FormateurDashboard() {
     }
   };
 
-  const handleEditCourse = async (updatedCourseData) => {
-    try { 
-      const dataToSend = {
-        title: updatedCourseData.title,
-        description: updatedCourseData.description,
-        imageUrl: updatedCourseData.imageUrl,
-        category: updatedCourseData.category,
-        chapters: updatedCourseData.chapters.map(chapter => ({
-          _id: chapter._id,
-          title: chapter.title,
-          order: chapter.order,
-          sections: chapter.sections.map(section => ({
-            _id: section._id,
-            title: section.title,
-            content: section.content,
-            videoUrl: section.videoUrl,
-            order: section.order,
-            duration: section.duration
-          })),
-          quiz: chapter.quiz ? {
-            _id: chapter.quiz._id,
-            passingScore: chapter.quiz.passingScore || 70,
-            questions: chapter.quiz.questions.map(question => ({
-              _id: question._id,
-              text: question.text,
-              options: question.options.map((opt, index) => ({
-                text: opt,
-                isCorrect: index === question.correctOption
-              })),
-              explanation: question.explanation,
-              points: question.points || 1
-            }))
-          } : null
-        }))
-      };
-      
-      const response = await api.put(`/courses/${selectedCourse._id}`, dataToSend, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-
-      if (response.data.success) {
-        toast.success('Cours mis à jour avec succès!');
-        const courseResponse = await api.get(
-          `/courses/${selectedCourse._id}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
-        );
-        
-        setAllCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
-        setMyCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
-        setShowEditCourseModal(false);
-        setShowCourseDetailModal(true);
+const handleEditCourse = async (updatedCourseData) => {
+  try { 
+    const dataToSend = {
+      title: updatedCourseData.title,
+      description: updatedCourseData.description,
+      imageUrl: updatedCourseData.imageUrl,
+      category: updatedCourseData.category,
+      chapters: updatedCourseData.chapters.map(chapter => ({
+        _id: chapter._id,
+        title: chapter.title,
+        order: chapter.order,
+        sections: chapter.sections.map(section => ({
+          _id: section._id,
+          title: section.title,
+          content: section.content,
+          videoUrl: section.videoUrl,
+          order: section.order,
+          duration: section.duration
+        })),
+        quiz: chapter.quiz ? {
+          _id: chapter.quiz._id,
+          passingScore: chapter.quiz.passingScore || 70,
+          questions: chapter.quiz.questions.map(question => ({
+            _id: question._id,
+            text: question.text,
+            options: question.options.map((opt, index) => ({
+              text: typeof opt === 'string' ? opt : opt.text || '',
+              // CORRECTION : isCorrect basé sur correctOption
+              isCorrect: Array.isArray(question.correctOption) 
+                ? question.correctOption.includes(index)
+                : index === question.correctOption
+            })),
+            correctOption: Array.isArray(question.correctOption) 
+              ? question.correctOption 
+              : (typeof question.correctOption === 'number' ? question.correctOption : 0),
+            explanation: question.explanation,
+            points: question.points || 1
+          }))
+        } : null
+      }))
+    };
+    
+    console.log('Data sent to backend:', JSON.stringify(dataToSend, null, 2));
+    
+    const response = await api.patch(`/courses/${selectedCourse._id}`, dataToSend, {
+      headers: {
+        'Authorization': `Bearer ${user.token}`
       }
-    } catch (err) {
-      console.error('Erreur:', err.response?.data || err);
-      toast.error(err.response?.data?.message || 'Échec de la mise à jour du cours');
+    });
+
+    if (response.data.success) {
+      toast.success('Cours mis à jour avec succès!');
+      const courseResponse = await api.get(
+        `/courses/${selectedCourse._id}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
+      );
+      
+      setAllCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
+      setMyCourses(prev => prev.map(c => c._id === selectedCourse._id ? courseResponse.data.data : c));
+      setShowEditCourseModal(false);
+      setShowCourseDetailModal(true);
     }
-  };
+  } catch (err) {
+    console.error('Erreur:', err.response?.data || err);
+    toast.error(err.response?.data?.message || 'Échec de la mise à jour du cours');
+  }
+};
 
   const handleDeleteCourse = async () => {
     try {
@@ -367,67 +375,81 @@ function FormateurDashboard() {
     }
   };
 
-  const handleViewCourseDetails = async (courseId) => {
-    try {
-      const response = await api.get(
-        `/courses/${courseId}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
-      );
-      
-      if (!response.data.data) {
-        throw new Error("Structure de données incorrecte");
-      }
+const handleViewCourseDetails = async (courseId) => {
+  try {
+    const response = await api.get(
+      `/courses/${courseId}?populate=createdBy,chapters,chapters.sections,chapters.quiz,chapters.quiz.questions`
+    );
+    
+    if (!response.data.data) {
+      throw new Error("Structure de données incorrecte");
+    }
 
-      const courseData = response.data.data;
-      
-      const formattedCourse = {
-        _id: courseData._id,
-        title: courseData.title || '',
-        description: courseData.description || '',
-        imageUrl: courseData.imageUrl || '',
-        category: courseData.category || '',
-        createdBy: courseData.createdBy,
-        chapters: (courseData.chapters || []).map((chapter) => ({
-          _id: chapter._id,
-          title: chapter.title || '',
-          order: chapter.order || 0,
-          sections: (chapter.sections || []).map((section) => ({
-            _id: section._id,
-            title: section.title || '',
-            content: section.content || '',
-            videoUrl: section.videoUrl || '',
-            order: section.order || 0,
-            duration: section.duration || 0
-          })),
-          quiz: chapter.quiz ? {
-            _id: chapter.quiz._id,
-            passingScore: chapter.quiz.passingScore || 70,
-            questions: (chapter.quiz.questions || []).map(question => ({
+    const courseData = response.data.data;
+    
+    const formattedCourse = {
+      _id: courseData._id,
+      title: courseData.title || '',
+      description: courseData.description || '',
+      imageUrl: courseData.imageUrl || '',
+      category: courseData.category || '',
+      createdBy: courseData.createdBy,
+      chapters: (courseData.chapters || []).map((chapter) => ({
+        _id: chapter._id,
+        title: chapter.title || '',
+        order: chapter.order || 0,
+        sections: (chapter.sections || []).map((section) => ({
+          _id: section._id,
+          title: section.title || '',
+          content: section.content || '',
+          videoUrl: section.videoUrl || '',
+          order: section.order || 0,
+          duration: section.duration || 0
+        })),
+        quiz: chapter.quiz ? {
+          _id: chapter.quiz._id,
+          passingScore: chapter.quiz.passingScore || 70,
+          questions: (chapter.quiz.questions || []).map(question => {
+            // CORRECTION : Récupérer correctement les réponses
+            let correctOption = [];
+            
+            if (Array.isArray(question.correctOption)) {
+              correctOption = question.correctOption;
+            } else if (typeof question.correctOption === 'number') {
+              correctOption = [question.correctOption];
+            } else if (question.options && Array.isArray(question.options)) {
+              // Si les réponses sont stockées dans les options avec isCorrect
+              correctOption = question.options
+                .map((opt, index) => (opt.isCorrect ? index : -1))
+                .filter(index => index !== -1);
+            }
+            
+            return {
               _id: question._id,
               text: question.text || '',
               options: Array.isArray(question.options) 
                 ? question.options.map(opt => typeof opt === 'string' ? opt : opt.text || '')
                 : ['', '', '', ''],
-              correctOption: Array.isArray(question.correctOption) 
-                ? question.correctOption 
-                : [question.correctOption].filter(v => v !== undefined && v !== null),
+              correctOption: correctOption,
               explanation: question.explanation || '',
               points: question.points || 1,
-              multipleAnswers: Array.isArray(question.correctOption) && question.correctOption.length > 1
-            }))
-          } : {
-            passingScore: 70,
-            questions: []
-          }
-        }))
-      };
+              multipleAnswers: correctOption.length > 1
+            };
+          })
+        } : {
+          passingScore: 70,
+          questions: []
+        }
+      }))
+    };
 
-      setSelectedCourse(formattedCourse);
-      setShowCourseDetailModal(true);
-    } catch (err) {
-      console.error('Erreur:', err);
-      toast.error('Erreur lors du chargement des détails du cours');
-    }
-  };
+    setSelectedCourse(formattedCourse);
+    setShowCourseDetailModal(true);
+  } catch (err) {
+    console.error('Erreur:', err);
+    toast.error('Erreur lors du chargement des détails du cours');
+  }
+};
 
   return (
     <div className="dashboard-container">
