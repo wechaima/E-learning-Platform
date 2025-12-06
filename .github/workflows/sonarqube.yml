@@ -1,0 +1,48 @@
+name: SonarQube Cloud Analysis
+
+on:
+  # Déclenchement sur TOUTES les branches
+  push:
+    branches: 
+      - '**'  # Analyse TOUTES les branches
+  
+  # Déclenchement sur les Pull Requests vers main
+  pull_request:
+    branches: [ "main" ]
+  
+  # Permet de lancer manuellement depuis GitHub UI
+  workflow_dispatch:
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Étape 1: Récupérer le code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Important pour SonarQube
+      
+      # Étape 2: Configurer Node.js (si projet Node)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      # Étape 3: Installer les dépendances
+      - name: Install dependencies
+        run: npm install
+      
+      # Étape 4: Analyse SonarQube
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=web:alma_E-learning-Platform
+            -Dsonar.organization=webalma
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.coverage.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.test.js
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
