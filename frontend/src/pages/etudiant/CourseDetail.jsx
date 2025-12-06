@@ -32,7 +32,7 @@ const CourseDetail = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [user, setUser] = useState(null);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+ 
   const [studentMessages, setStudentMessages] = useState([]);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
 
@@ -93,6 +93,8 @@ const CourseDetail = () => {
           {results.map((result, index) => (
             <div key={result.questionId} className="question-breakdown">
               <div 
+                role ="button"
+                tabIndex="0"
                 className="question-header"
                 onClick={() => toggleQuestion(result.questionId)}
               >
@@ -198,8 +200,9 @@ const CourseDetail = () => {
   }, []);
 
   // Fetch unread messages count for formateur
+  
   useEffect(() => {
-    if (user && user.role === 'formateur') {
+    if (user?.role === 'formateur') {
       fetchUnreadMessagesCount();
     }
   }, [user]);
@@ -247,7 +250,7 @@ const CourseDetail = () => {
 
   // Fetch student messages for etudiant
   useEffect(() => {
-    if (user && user.role === 'etudiant' && isSubscribed) {
+    if (user?.role === 'etudiant' && isSubscribed) {
       fetchStudentMessages();
     }
   }, [user, isSubscribed]);
@@ -273,7 +276,7 @@ const CourseDetail = () => {
       const response = await api.get('/messages/unread-count', {
         headers: { Authorization: `Bearer ${user.token}` }
       });
-      setUnreadMessagesCount(response.data.count);
+    
     } catch (err) {
       console.error('Error fetching unread messages count:', err);
     }
@@ -872,6 +875,8 @@ const CourseDetail = () => {
                                 {section.videoUrl && <FiPlay className="video-icon" />}
                                 <span className="section-title">{section.title}</span>
                               </div>
+
+                              
                               {course.progress?.chapterProgress
                                 ?.find((cp) => cp.chapterId.toString() === chapter._id)
                                 ?.completedSections.includes(section._id) && (
