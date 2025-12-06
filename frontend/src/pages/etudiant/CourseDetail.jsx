@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import api from '../../api/axios';
 import QuestionForm from '../../components/Notification/QuestionForm';
 import './CourseDetail.css';
-
+//*****
 const CourseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
