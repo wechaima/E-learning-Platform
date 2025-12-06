@@ -36,13 +36,12 @@ jobs:
       
       # Étape 4: Analyse SonarQube
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=web:alma_E-learning-Platform
-            -Dsonar.organization=webalma
+            -Dsonar.organization=wechaima
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.coverage.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.test.js
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
