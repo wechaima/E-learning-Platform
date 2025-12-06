@@ -41,6 +41,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
+            -Dsonar.projectKey=wechaima_E-learning-Platform
             -Dsonar.organization=wechaima
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.coverage.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.test.js
